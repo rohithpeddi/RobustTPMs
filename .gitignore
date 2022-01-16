@@ -5,6 +5,11 @@ __pycache__/
 
 # C extensions
 *.so
+data/
+conditional_samples/
+samples/
+checkpoints/
+.idea/
 
 # Distribution / packaging
 .Python
