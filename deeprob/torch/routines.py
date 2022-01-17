@@ -19,22 +19,22 @@ from deeprob.flows.models.base import NormalizingFlow
 
 
 def train_model(
-    model: ProbabilisticModel,
-    data_train: Union[np.ndarray, data.Dataset],
-    data_valid: Union[np.ndarray, data.Dataset],
-    setting: str,
-    lr: float = 1e-3,
-    batch_size: int = 100,
-    epochs: int = 1000,
-    optimizer: str = 'adam',
-    optimizer_kwargs: Optional[dict] = None,
-    patience: int = 20,
-    checkpoint: Union[os.PathLike, str] = 'checkpoint.pt',
-    train_base: bool = True,
-    drop_last: bool = True,
-    num_workers: int = 0,
-    device: Optional[torch.device] = None,
-    verbose: bool = True
+        model: ProbabilisticModel,
+        data_train: Union[np.ndarray, data.Dataset],
+        data_valid: Union[np.ndarray, data.Dataset],
+        setting: str,
+        lr: float = 1e-3,
+        batch_size: int = 100,
+        epochs: int = 1000,
+        optimizer: str = 'adam',
+        optimizer_kwargs: Optional[dict] = None,
+        patience: int = 20,
+        checkpoint: Union[os.PathLike, str] = 'checkpoint.pt',
+        train_base: bool = True,
+        drop_last: bool = True,
+        num_workers: int = 0,
+        device: Optional[torch.device] = None,
+        verbose: bool = True
 ) -> Union[Dict[str, list], Dict[str, Dict[str, list]]]:
     """
     Train a Torch model.
@@ -96,15 +96,15 @@ def train_model(
 
 
 def train_generative(
-    model: ProbabilisticModel,
-    train_loader: data.DataLoader,
-    valid_loader: data.DataLoader,
-    optimizer: optim.Optimizer,
-    device: torch.device,
-    early_stopping: EarlyStopping,
-    epochs: int = 1000,
-    train_base: bool = True,
-    verbose: bool = True
+        model: ProbabilisticModel,
+        train_loader: data.DataLoader,
+        valid_loader: data.DataLoader,
+        optimizer: optim.Optimizer,
+        device: torch.device,
+        early_stopping: EarlyStopping,
+        epochs: int = 1000,
+        train_base: bool = True,
+        verbose: bool = True
 ) -> Dict[str, list]:
     """
     Train a Torch model in generative setting.
@@ -155,8 +155,8 @@ def train_generative(
             model.train()
 
         # Training phase
-        for inputs, _ in data_loader:
-            inputs = inputs.to(device)
+        for inputs in data_loader:
+            inputs = inputs[0].to(device)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = model.loss(outputs)
@@ -180,7 +180,7 @@ def train_generative(
         # Validation phase
         with torch.no_grad():
             for inputs in data_loader:
-                inputs = inputs.to(device)
+                inputs = inputs[0].to(device)
                 outputs = model(inputs)
                 loss = model.loss(outputs)
                 running_valid_loss(loss.item(), num_samples=inputs.shape[0])
@@ -211,15 +211,15 @@ def train_generative(
 
 
 def train_discriminative(
-    model: ProbabilisticModel,
-    train_loader: data.DataLoader,
-    valid_loader: data.DataLoader,
-    optimizer: optim.Optimizer,
-    device: torch.device,
-    early_stopping: EarlyStopping,
-    epochs: int = 1000,
-    train_base: bool = True,
-    verbose: bool = True
+        model: ProbabilisticModel,
+        train_loader: data.DataLoader,
+        valid_loader: data.DataLoader,
+        optimizer: optim.Optimizer,
+        device: torch.device,
+        early_stopping: EarlyStopping,
+        epochs: int = 1000,
+        train_base: bool = True,
+        verbose: bool = True
 ) -> Dict[str, Dict[str, list]]:
     """
     Train a Torch model in discriminative setting.
@@ -347,13 +347,14 @@ def train_discriminative(
 
 
 def test_model(
-    model: ProbabilisticModel,
-    data_test: Union[np.ndarray, data.Dataset],
-    setting: str,
-    batch_size: int = 100,
-    num_workers: int = 0,
-    device: Optional[torch.device] = None,
-    verbose: bool = True
+        model: ProbabilisticModel,
+        data_test: Union[np.ndarray, data.Dataset],
+        setting: str,
+        batch_size: int = 100,
+        num_workers: int = 0,
+        device: Optional[torch.device] = None,
+        verbose: bool = True,
+        marginalize_idx: Optional[list] = None
 ) -> Union[Tuple[float, float], Tuple[float, dict]]:
     """
     Test a Torch model.
@@ -376,7 +377,6 @@ def test_model(
 
     # Setup the data loader
     test_loader = data.DataLoader(data_test, batch_size, shuffle=False, drop_last=False, num_workers=num_workers)
-
     # Move the model to device
     model.to(device)
 
@@ -385,15 +385,17 @@ def test_model(
         return test_generative(model, test_loader, device, verbose)
     if setting == 'discriminative':
         return test_discriminative(model, test_loader, device, verbose)
-
+    if setting == 'conditional':
+        return test_conditional(model, test_loader, marginalize_idx, device, verbose)
     raise ValueError("Unknown test setting called {}".format(setting))
 
 
-def test_generative(
-    model: ProbabilisticModel,
-    test_loader: data.DataLoader,
-    device: torch.device,
-    verbose: bool = True
+def test_conditional(
+        model: ProbabilisticModel,
+        test_loader: data.DataLoader,
+        marginalize_idx: list,
+        device: torch.device,
+        verbose: bool = True
 ) -> Tuple[float, float]:
     """
     Test a Torch model in generative setting.
@@ -419,7 +421,49 @@ def test_generative(
     test_lls = []
     with torch.no_grad():
         for inputs in data_loader:
-            inputs = inputs.to(device)
+            inputs = inputs[0].to(device)
+            joint_ll = model(inputs).cpu()
+            marginal_inputs = inputs.clone()
+            marginal_inputs[:, marginalize_idx] = np.nan
+            marginal_ll = model(marginal_inputs).cpu()
+            conditional_ll = (joint_ll-marginal_ll).tolist()
+            test_lls.extend(conditional_ll)
+    mean_ll = np.mean(test_lls)
+    stddev_ll = 2.0 * np.std(test_lls) / np.sqrt(len(test_lls))
+    return mean_ll.item(), stddev_ll.item()
+
+
+def test_generative(
+        model: ProbabilisticModel,
+        test_loader: data.DataLoader,
+        device: torch.device,
+        verbose: bool = True
+) -> Tuple[float, float]:
+    """
+    Test a Torch model in generative setting.
+
+    :param model: The model to test.
+    :param test_loader: The test data loader.
+    :param device: The device used for testing.
+    :param verbose: Whether to enable verbose mode.
+    :return: The mean log-likelihood and two standard deviations.
+    """
+    # Wrap the test loader in a tqdm bar, if specified
+    if verbose:
+        data_loader = tqdm(
+            test_loader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
+            desc='Test', unit='batch'
+        )
+    else:
+        data_loader = test_loader
+
+    # Make sure the model is set to evaluation mode
+    model.eval()
+
+    test_lls = []
+    with torch.no_grad():
+        for inputs in data_loader:
+            inputs = inputs[0].to(device)
             ll = model(inputs).cpu().tolist()
             test_lls.extend(ll)
     mean_ll = np.mean(test_lls)
@@ -428,10 +472,10 @@ def test_generative(
 
 
 def test_discriminative(
-    model: ProbabilisticModel,
-    test_loader: data.DataLoader,
-    device: torch.device,
-    verbose: bool = True
+        model: ProbabilisticModel,
+        test_loader: data.DataLoader,
+        device: torch.device,
+        verbose: bool = True
 ) -> Tuple[float, dict]:
     """
     Test a Torch model in discriminative setting.

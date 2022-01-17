@@ -38,7 +38,7 @@ def test_standard_spn_continuous():
 				evaluation_message(print_message)
 
 				ratspn_args = dict()
-				ratspn_args[N_FEATURES] = MNIST_HEIGHT*MNIST_WIDTH
+				ratspn_args[N_FEATURES] = MNIST_HEIGHT * MNIST_WIDTH
 				ratspn_args[OUT_CLASSES] = NUM_CLASSES
 				ratspn_args[DEPTH] = DEFAULT_DEPTH
 				ratspn_args[NUM_SUMS] = num_distributions
@@ -58,7 +58,7 @@ def test_standard_spn_continuous():
 														ratspn_args, batch_size=TRAIN_BATCH_SIZE)
 
 				mean_ll, std_ll = SPN.test_clean_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
-				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}". format(mean_ll, std_ll))
+				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
 
 				print_message += (" " + "generating samples")
 				evaluation_message(print_message)
@@ -87,7 +87,7 @@ def test_standard_spn_adv_test_data():
 				evaluation_message(print_message)
 
 				ratspn_args = dict()
-				ratspn_args[N_FEATURES] = MNIST_HEIGHT*MNIST_WIDTH
+				ratspn_args[N_FEATURES] = MNIST_HEIGHT * MNIST_WIDTH
 				ratspn_args[OUT_CLASSES] = NUM_CLASSES
 				ratspn_args[DEPTH] = DEFAULT_DEPTH
 				ratspn_args[NUM_SUMS] = num_distributions
@@ -100,8 +100,44 @@ def test_standard_spn_adv_test_data():
 				trained_ratspn = SPN.load_pretrained_ratspn(dataset_name, ratspn_args)
 
 				mean_ll, std_ll = SPN.test_clean_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
-				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}". format(mean_ll, std_ll))
+				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
+
+
+def test_standard_spn_discrete():
+	for dataset_name in DISCRETE_DATASETS:
+		evaluation_message("Dataset : {}".format(dataset_name))
+
+		if dataset_name in DEBD_DATASETS:
+			# Load data as tensors
+			train_x, valid_x, test_x = SPN.load_debd_dataset(dataset_name)
+
+			for num_distributions in NUM_INPUT_DISTRIBUTIONS_LIST:
+				evaluation_message("Number of distributions {}".format(num_distributions))
+
+				ratspn_args = dict()
+				ratspn_args[N_FEATURES] = train_x.shape[1]
+				ratspn_args[OUT_CLASSES] = NUM_CLASSES
+				ratspn_args[DEPTH] = DEFAULT_DEPTH
+				ratspn_args[NUM_SUMS] = num_distributions
+				ratspn_args[NUM_INPUT_DISTRIBUTIONS] = num_distributions
+				ratspn_args[NUM_REPETITIONS] = DEFAULT_NUM_REPETITIONS
+
+				evaluation_message("Loading ratspn")
+
+				ratspn = SPN.load_ratspn(dataset_name, ratspn_args)
+
+				evaluation_message("Training ratspn")
+
+				trained_ratspn = SPN.train_clean_ratspn(dataset_name, ratspn, train_x, valid_x,
+														test_x, ratspn_args, batch_size=TRAIN_BATCH_SIZE)
+
+				mean_ll, std_ll = SPN.test_clean_spn(dataset_name, trained_ratspn, test_x, batch_size=EVAL_BATCH_SIZE)
+				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
+
+				for evidence_percentage in EVIDENCE_PERCENTAGES:
+					mean_ll, std_ll = SPN.test_conditional_likelihood(trained_ratspn, dataset_name, evidence_percentage, ratspn_args, test_x)
+					print("Evidence percentage : {}, Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(evidence_percentage, mean_ll, std_ll))
 
 
 if __name__ == '__main__':
-	test_standard_spn_adv_test_data()
+	test_standard_spn_discrete()

@@ -5,23 +5,11 @@ from torch.utils.data import TensorDataset, DataLoader
 
 from tqdm import tqdm
 from attacks.sparsefool.sparsefool import sparsefool
-from neural_models.Net import Net
+from neural_models.MNet import Net
+from constants import *
 
 ####################################################################################
 
-CHECKPOINT_DIRECTORY = "../../checkpoints"
-
-MNIST = "mnist"
-FASHION_MNIST = "fashion_mnist"
-BINARY_MNIST = "binary_mnist"
-MNIST_HEIGHT = 28
-MNIST_WIDTH = 28
-MNIST_CHANNELS = 1
-MAX_ITER = 50
-LAMBDA = 3.
-
-MNIST_MODEL_DIRECTORY = "checkpoints/mnist"
-DEFAULT_ATTACK_BATCH_SIZE = 1
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -40,7 +28,7 @@ def load_neural_network(dataset_name):
 	net = None
 	if dataset_name == MNIST:
 		net = Net().to(device)
-		net.load_state_dict(torch.load(os.path.join(MNIST_MODEL_DIRECTORY, "mnist_cnn.pt")))
+		net.load_state_dict(torch.load(os.path.join(MNIST_NET_DIRECTORY, "mnist_cnn.pt")))
 		net.eval()
 	return net
 

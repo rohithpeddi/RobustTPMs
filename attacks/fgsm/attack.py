@@ -2,7 +2,7 @@ import torch
 import os
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
-from neural_models.Net import Net
+from neural_models.MNet import Net
 
 ####################################################################################
 

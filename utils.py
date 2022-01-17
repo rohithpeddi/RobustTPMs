@@ -3,7 +3,30 @@ import errno
 import torch
 import numpy as np
 from PIL import Image
+from neural_models.MNet import Net
+from constants import *
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
+def to_torch_tensor(train_x, valid_x, test_x, train_labels, valid_labels, test_labels):
+	train_x = torch.tensor(train_x, dtype=torch.float32, device=torch.device(device))
+	valid_x = torch.tensor(valid_x, dtype=torch.float32, device=torch.device(device))
+	test_x = torch.tensor(test_x, dtype=torch.float32, device=torch.device(device))
+
+	train_labels = torch.tensor(train_labels, dtype=torch.int64, device=torch.device(device))
+	valid_labels = torch.tensor(valid_labels, dtype=torch.int64, device=torch.device(device))
+	test_labels = torch.tensor(test_labels, dtype=torch.int64, device=torch.device(device))
+
+	return train_x, valid_x, test_x, train_labels, valid_labels, test_labels
+
+
+def predict_labels_mnist(data):
+	net = Net().to(device)
+	net.load_state_dict(torch.load(os.path.join(MNIST_NET_DIRECTORY, "mnist_cnn.pt")))
+	net.eval()
+
+	return net(data)
 
 
 def mkdir_p(path):
