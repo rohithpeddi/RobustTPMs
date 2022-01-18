@@ -1,6 +1,7 @@
 import os
 import errno
 import torch
+import yaml
 import numpy as np
 from PIL import Image
 
@@ -11,6 +12,10 @@ from tqdm import tqdm
 from torch.utils.data import TensorDataset, DataLoader
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
+def pretty_print_dictionary(dictionary):
+	print(yaml.dump(dictionary, default_flow_style=False))
 
 
 def to_torch_tensor(train_x, valid_x, test_x, train_labels, valid_labels, test_labels):
@@ -107,5 +112,3 @@ def sample_matrix_categorical(p):
 		rand = torch.rand((cp.shape[0], 1), device=cp.device)
 		rand_idx = torch.sum(rand > cp, -1).long()
 		return rand_idx
-
-

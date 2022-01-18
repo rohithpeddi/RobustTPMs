@@ -7,6 +7,7 @@ from utils import mkdir_p
 from attacks.fgsm import attack
 from constants import *
 from attacks.sparsefool import attack as sparsefool_attack
+from utils import pretty_print_dictionary
 
 ############################################################################
 
@@ -109,16 +110,18 @@ def test_standard_spn_discrete(specific_datasets=None):
 	else:
 		specific_datasets = [specific_datasets] if type(specific_datasets) is not list else specific_datasets
 
+	results = dict()
 	for dataset_name in specific_datasets:
 		evaluation_message("Dataset : {}".format(dataset_name))
 
-		# Load data as tensors
-		if dataset_name in DEBD_DATASETS:
-			train_x, valid_x, test_x = SPN.load_debd_dataset(dataset_name)
-		else:
-			train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
+		dataset_results = dict()
+
+		train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
 
 		for num_distributions in NUM_INPUT_DISTRIBUTIONS_LIST:
+
+			dataset_distribution_results = dict()
+
 			evaluation_message("Number of distributions {}".format(num_distributions))
 
 			ratspn_args = dict()
@@ -141,23 +144,47 @@ def test_standard_spn_discrete(specific_datasets=None):
 			mean_ll, std_ll = SPN.test_clean_spn(dataset_name, trained_ratspn, test_x, batch_size=EVAL_BATCH_SIZE)
 			evaluation_message("Clean Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
 
-			evaluation_message("Generating samples")
-			SPN.generate_samples(trained_ratspn, dataset_name, ratspn_args)
+			dataset_distribution_results['Clean Mean LL'] = mean_ll
+			dataset_distribution_results['Clean Std LL'] = std_ll
 
-			evaluation_message("Generating conditional samples")
-			SPN.generate_conditional_samples(trained_ratspn, dataset_name, ratspn_args, test_x)
-
-			mean_ll, std_ll = SPN.test_adv_spn(trained_ratspn, dataset_name, test_x, test_labels, batch_size=EVAL_BATCH_SIZE, epsilon=0)
+			mean_ll, std_ll = SPN.test_adv_spn(dataset_name, trained_ratspn, test_x, test_labels,
+											   batch_size=EVAL_BATCH_SIZE, epsilon=0)
 			evaluation_message("Adv Test - Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
 
-			for evidence_percentage in EVIDENCE_PERCENTAGES:
-				mean_ll, std_ll = SPN.test_conditional_likelihood(trained_ratspn, dataset_name, evidence_percentage, ratspn_args, test_x)
-				evaluation_message("Clean Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll, std_ll))
+			dataset_distribution_results['Adv Mean LL'] = mean_ll
+			dataset_distribution_results['Adv Std LL'] = std_ll
 
-				mean_ll, std_ll = SPN.test_conditional_adv_likelihood(trained_ratspn, dataset_name, evidence_percentage, ratspn_args, test_x, test_labels)
+			if dataset_name == BINARY_MNIST:
+				evaluation_message("Generating samples")
+				SPN.generate_samples(trained_ratspn, dataset_name, ratspn_args)
+
+				evaluation_message("Generating conditional samples")
+				SPN.generate_conditional_samples(trained_ratspn, dataset_name, ratspn_args, test_x)
+
+			for evidence_percentage in EVIDENCE_PERCENTAGES:
+				dataset_distribution_evidence_results = dict()
+				mean_ll, std_ll = SPN.test_conditional_likelihood(trained_ratspn, dataset_name, evidence_percentage,
+																  ratspn_args, test_x)
 				evaluation_message(
-					"Adv Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll, std_ll))
+					"Clean Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll,
+																						std_ll))
+				dataset_distribution_evidence_results['Clean Mean LL'] = mean_ll
+				dataset_distribution_evidence_results['Clean Std LL'] = std_ll
+
+				mean_ll, std_ll = SPN.test_conditional_adv_likelihood(trained_ratspn, dataset_name, evidence_percentage,
+																	  ratspn_args, test_x, test_labels)
+				evaluation_message(
+					"Adv Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll,
+																					  std_ll))
+				dataset_distribution_evidence_results['Adv Mean LL'] = mean_ll
+				dataset_distribution_evidence_results['Adv Std LL'] = std_ll
+
+				dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
+			dataset_results[num_distributions] = dataset_distribution_results
+		results[dataset_name] = dataset_results
+		pretty_print_dictionary(results)
 
 
 if __name__ == '__main__':
-	test_standard_spn_discrete([BINARY_MNIST])
+	# test_standard_spn_discrete([BINARY_MNIST])
+	test_standard_spn_discrete(['plants'])

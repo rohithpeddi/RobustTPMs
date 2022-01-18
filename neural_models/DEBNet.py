@@ -19,4 +19,5 @@ class DEBNet(nn.Module):
 		x = F.relu(self.fc2(x))
 		x = self.dropout2(x)
 		x = self.fc3(x)
-		return x
+		output = F.log_softmax(x, dim=1)
+		return output

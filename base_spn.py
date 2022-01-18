@@ -11,6 +11,7 @@ from attacks.sparsefool import attack as sparsefool_attack
 from deeprob.torch.routines import train_model, test_model
 from utils import mkdir_p, save_image_stack, predict_labels_mnist
 from constants import *
+from train_neural_models import generate_debd_labels
 
 ############################################################################
 
@@ -45,15 +46,26 @@ def load_dataset(dataset_name):
 		train_x = train_x[:-10000, :]
 		valid_labels = train_labels[-10000:]
 		train_labels = train_labels[:-10000]
+
+		train_x = torch.from_numpy(train_x).to(torch.device(device))
+		valid_x = torch.from_numpy(valid_x).to(torch.device(device))
+		test_x = torch.from_numpy(test_x).to(torch.device(device))
 	elif dataset_name == BINARY_MNIST:
 		train_x, valid_x, test_x = datasets.load_binarized_mnist_dataset()
 		train_labels = predict_labels_mnist(train_x)
 		valid_labels = predict_labels_mnist(valid_x)
 		test_labels = predict_labels_mnist(test_x)
 
-	train_x = torch.from_numpy(train_x).to(torch.device(device))
-	valid_x = torch.from_numpy(valid_x).to(torch.device(device))
-	test_x = torch.from_numpy(test_x).to(torch.device(device))
+		train_x = torch.from_numpy(train_x).to(torch.device(device))
+		valid_x = torch.from_numpy(valid_x).to(torch.device(device))
+		test_x = torch.from_numpy(test_x).to(torch.device(device))
+	elif dataset_name in DEBD_DATASETS:
+		train_x, test_x, valid_x = datasets.load_debd(dataset_name)
+		train_labels, valid_labels, test_labels = generate_debd_labels(dataset_name, train_x, valid_x, test_x)
+
+		train_x = torch.tensor(train_x, dtype=torch.float32, device=torch.device(device))
+		valid_x = torch.tensor(valid_x, dtype=torch.float32, device=torch.device(device))
+		test_x = torch.tensor(test_x, dtype=torch.float32, device=torch.device(device))
 
 	train_labels = torch.from_numpy(train_labels.reshape(-1, 1)).to(torch.device(device))
 	valid_labels = torch.from_numpy(valid_labels.reshape(-1, 1)).to(torch.device(device))
@@ -100,8 +112,9 @@ def get_model_file_path(dataset_name, ratspn_args):
 															ratspn_args[NUM_INPUT_DISTRIBUTIONS],
 															ratspn_args[NUM_REPETITIONS]))
 	elif dataset_name in DEBD_DATASETS:
-		mkdir_p(DEBD_MODEL_DIRECTORY)
-		file_path = os.path.join(DEBD_MODEL_DIRECTORY,
+		DEBD_DATASET_MODEL_DIRECTORY = DEBD_MODEL_DIRECTORY + "/{}".format(dataset_name)
+		mkdir_p(DEBD_DATASET_MODEL_DIRECTORY)
+		file_path = os.path.join(DEBD_DATASET_MODEL_DIRECTORY,
 								 "{}_{}_{}_{}.pt".format(dataset_name, ratspn_args[NUM_SUMS],
 														 ratspn_args[NUM_INPUT_DISTRIBUTIONS],
 														 ratspn_args[NUM_REPETITIONS]))
@@ -282,6 +295,9 @@ def train_adv_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x, valid
 	if dataset_name == MNIST or dataset_name == BINARY_MNIST:
 		attack = sparsefool_attack
 		DATA_DIRECTORY = "data/{}/augmented/sparsefool".format(dataset_name)
+	elif dataset_name in DEBD_DATASETS:
+		attack = sparsefool_attack
+		DATA_DIRECTORY = "data/DEBD/datasets/{}/augmented/sparsefool".format(dataset_name)
 
 	train_file_path = os.path.join(DATA_DIRECTORY, "train_dataset.pt")
 	valid_file_path = os.path.join(DATA_DIRECTORY, "valid_dataset.pt")
@@ -334,6 +350,9 @@ def fetch_adv_test_data(ratspn, dataset_name, test_x, test_labels):
 	if dataset_name == MNIST or dataset_name == BINARY_MNIST:
 		attack = sparsefool_attack
 		DATA_DIRECTORY = "data/{}/augmented/sparsefool".format(dataset_name)
+	elif dataset_name in DEBD_DATASETS:
+		attack = sparsefool_attack
+		DATA_DIRECTORY = "data/DEBD/{}/augmented/sparsefool".format(dataset_name)
 
 	test_file_path = os.path.join(DATA_DIRECTORY, "test_dataset.pt")
 	if os.path.exists(test_file_path):
@@ -346,7 +365,7 @@ def fetch_adv_test_data(ratspn, dataset_name, test_x, test_labels):
 	return data_test
 
 
-def test_adv_spn(ratspn, dataset_name, test_x, test_labels, batch_size=100, epsilon=0.05):
+def test_adv_spn(dataset_name, ratspn, test_x, test_labels, batch_size=100, epsilon=0.05):
 	ratspn.eval()
 
 	data_test = fetch_adv_test_data(ratspn, dataset_name, test_x, test_labels)
