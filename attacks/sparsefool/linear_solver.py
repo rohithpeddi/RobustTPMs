@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import copy
-from attacks.sparsefool.utils import clip_image_values
+from attacks.sparsefool.attack_utils import clip_image_values
 
 
 def linear_solver(x_0, normal, boundary_point, lb, ub):

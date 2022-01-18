@@ -2,7 +2,7 @@ import torch
 import os
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
-from neural_models.MNet import Net
+from neural_models.MNet import MNet
 
 ####################################################################################
 
@@ -25,7 +25,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 def load_neural_network(dataset_name):
 	net = None
 	if dataset_name == MNIST:
-		net = Net().to(device)
+		net = MNet().to(device)
 		net.load_state_dict(torch.load(os.path.join(MNIST_MODEL_DIRECTORY, "mnist_cnn.pt")))
 		net.eval()
 	return net

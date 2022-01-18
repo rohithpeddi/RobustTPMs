@@ -2,7 +2,7 @@ import torch as torch
 import copy
 from attacks.sparsefool.linear_solver import linear_solver
 from torch.autograd import Variable
-from attacks.sparsefool.utils import clip_image_values
+from attacks.sparsefool.attack_utils import clip_image_values
 from attacks.sparsefool.deepfool import deepfool
 
 

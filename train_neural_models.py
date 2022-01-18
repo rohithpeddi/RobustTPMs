@@ -1,21 +1,20 @@
 import os
 
-import numpy as np
 import torch
-from tqdm import tqdm
-import datasets
 import torch.nn.functional as F
 import torch.optim as optim
-from utils import mkdir_p, to_torch_tensor
-from torch.optim.lr_scheduler import StepLR
-from torchvision import transforms
 import torchvision.datasets as torch_datasets
-from constants import *
-from torch.utils.data import TensorDataset, DataLoader
-
-from neural_models.MNet import Net
-from neural_models.DEBNet import DEBNet
 from sklearn.cluster import KMeans
+from torch.utils.data import TensorDataset
+from torchvision import transforms
+from tqdm import tqdm
+
+import datasets
+from constants import *
+from neural_models.DEBNet import DEBNet
+from neural_models.MNet import MNet
+from neural_models.BMNet import BMNet
+from utils import mkdir_p, to_torch_tensor, predict_labels_mnist
 
 #######################################################################################
 
@@ -53,7 +52,6 @@ def test(model, test_loader):
 	)
 	with torch.no_grad():
 		for data, target in data_loader:
-			data = torch.round(data)
 			data, target = data.to(device), target.to(device)
 			output = model(data)
 			test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
@@ -88,7 +86,7 @@ def train_mnist():
 	test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
 	# Training settings
-	model = Net().to(device)
+	model = MNet().to(device)
 	optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999),
                  eps=1e-08, weight_decay=0, amsgrad=False)
 	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
@@ -116,9 +114,8 @@ def generate_debd_labels(dataset_name, train_x, valid_x, test_x):
 
 
 def train_debd(dataset_name):
-
 	print("--------------------------------------------------------------------")
-	print(" Training Neural Network for {}". format(dataset_name))
+	print(" Training Neural Network for {}".format(dataset_name))
 	print("--------------------------------------------------------------------")
 
 	train_kwargs = {'batch_size': 100}
@@ -132,7 +129,9 @@ def train_debd(dataset_name):
 	train_x, valid_x, test_x = datasets.load_debd(dataset_name)
 	train_labels, valid_labels, test_labels = generate_debd_labels(dataset_name, train_x, valid_x, test_x)
 
-	train_x, valid_x, test_x, train_labels, valid_labels, test_labels = to_torch_tensor(train_x, valid_x, test_x, train_labels, valid_labels, test_labels)
+	train_x, valid_x, test_x, train_labels, valid_labels, test_labels = to_torch_tensor(train_x, valid_x, test_x,
+																						train_labels, valid_labels,
+																						test_labels)
 
 	data_train = TensorDataset(train_x, train_labels)
 	data_test = TensorDataset(test_x, test_labels)
@@ -144,7 +143,7 @@ def train_debd(dataset_name):
 	# Training settings
 	model = DEBNet(train_x.shape[1], 10).to(device)
 	optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999),
-                 eps=1e-08, weight_decay=0, amsgrad=False)
+						   eps=1e-08, weight_decay=0, amsgrad=False)
 	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
 		train(model, train_loader, optimizer, epoch)
 		test(model, test_loader)
@@ -161,6 +160,47 @@ def train_debd_datasets():
 		train_debd(dataset_name)
 
 
+def train_binary_mnist():
+	train_kwargs = {'batch_size': 100}
+	test_kwargs = {'batch_size': 100}
+	if torch.cuda.is_available():
+		cuda_kwargs = {'num_workers': 1,
+					   'shuffle': True}
+		train_kwargs.update(cuda_kwargs)
+		test_kwargs.update(cuda_kwargs)
+
+	train_x, valid_x, test_x = datasets.load_binarized_mnist_dataset()
+
+	train_x = train_x.reshape((-1, MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH))
+	valid_x = valid_x.reshape((-1, MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH))
+	test_x = test_x.reshape((-1, MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH))
+
+	train_labels = predict_labels_mnist(train_x)
+	valid_labels = predict_labels_mnist(valid_x)
+	test_labels = predict_labels_mnist(test_x)
+
+	train_x, valid_x, test_x, train_labels, valid_labels, test_labels = to_torch_tensor(train_x, valid_x, test_x,
+																						train_labels, valid_labels,
+																						test_labels)
+
+	data_train = TensorDataset(train_x, train_labels)
+	data_test = TensorDataset(test_x, test_labels)
+
+	train_loader = torch.utils.data.DataLoader(data_train, shuffle=True, batch_size=TRAIN_BATCH_SIZE)
+	test_loader = torch.utils.data.DataLoader(data_test, shuffle=True, batch_size=EVAL_BATCH_SIZE)
+
+	# Training settings
+	model = BMNet().to(device)
+	optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
+		train(model, train_loader, optimizer, epoch)
+		test(model, test_loader)
+
+	mkdir_p(BINARY_MNIST_NET_PATH)
+	torch.save(model.state_dict(), os.path.join(BINARY_MNIST_NET_PATH, BINARY_MNIST_NET_FILE))
+
+
 if __name__ == '__main__':
 	# train_mnist()
-	train_debd_datasets()
+	# train_debd_datasets()
+	train_binary_mnist()

@@ -3,8 +3,12 @@ import errno
 import torch
 import numpy as np
 from PIL import Image
-from neural_models.MNet import Net
+
+from attacks.sparsefool.attack import device
+from neural_models.MNet import MNet
 from constants import *
+from tqdm import tqdm
+from torch.utils.data import TensorDataset, DataLoader
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -22,11 +26,30 @@ def to_torch_tensor(train_x, valid_x, test_x, train_labels, valid_labels, test_l
 
 
 def predict_labels_mnist(data):
-	net = Net().to(device)
+	net = MNet().to(device)
 	net.load_state_dict(torch.load(os.path.join(MNIST_NET_DIRECTORY, "mnist_cnn.pt")))
 	net.eval()
 
-	return net(data)
+	data = torch.tensor(data, dtype=torch.float32, device=torch.device(device))
+
+	dataset = TensorDataset(data.reshape((-1, MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH)))
+	data_loader = DataLoader(dataset, shuffle=False, batch_size=EVAL_BATCH_SIZE)
+
+	data_loader = tqdm(
+		data_loader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
+		desc='Generating labels', unit='batch'
+	)
+
+	labels = []
+	for inputs in data_loader:
+		inputs = inputs[0].to(device)
+		outputs = net(inputs)
+		labels.extend(torch.argmax(outputs, dim=1).cpu().numpy().tolist())
+
+	del net, dataset, data_loader, data
+	torch.cuda.empty_cache()
+
+	return np.array(labels)
 
 
 def mkdir_p(path):
@@ -84,3 +107,5 @@ def sample_matrix_categorical(p):
 		rand = torch.rand((cp.shape[0], 1), device=cp.device)
 		rand_idx = torch.sum(rand > cp, -1).long()
 		return rand_idx
+
+

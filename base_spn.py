@@ -106,8 +106,8 @@ def get_model_file_path(dataset_name, ratspn_args):
 														 ratspn_args[NUM_INPUT_DISTRIBUTIONS],
 														 ratspn_args[NUM_REPETITIONS]))
 	elif dataset_name == BINARY_MNIST:
-		mkdir_p(MNIST_MODEL_DIRECTORY)
-		file_path = os.path.join(MNIST_MODEL_DIRECTORY,
+		mkdir_p(BINARY_MNIST_MODEL_DIRECTORY)
+		file_path = os.path.join(BINARY_MNIST_MODEL_DIRECTORY,
 								 "{}_{}_{}_{}.pt".format(dataset_name, ratspn_args[NUM_SUMS],
 														 ratspn_args[NUM_INPUT_DISTRIBUTIONS],
 														 ratspn_args[NUM_REPETITIONS]))
@@ -172,7 +172,7 @@ def generate_conditional_samples(ratspn, dataset_name, ratspn_args, test_x):
 		save_image_stack(ground_truth, 5, 5, os.path.join(DATASET_CONDITIONAL_SAMPLES_DIR, ground_truth_file),
 						 margin_gray_val=0.)
 
-		test_batch_x = test_x[0:25, :]
+		test_batch_x = (test_x[0:25, :]).clone()
 		test_batch_x[:, marginalize_idx] = np.nan
 
 		mpe_reconstruction = ratspn.mpe(x=test_batch_x).cpu().numpy()
@@ -186,21 +186,24 @@ def generate_conditional_samples(ratspn, dataset_name, ratspn_args, test_x):
 
 
 def test_conditional_likelihood(ratspn, dataset_name, evidence_percentage, ratspn_args, test_x):
-	if dataset_name in DEBD_DATASETS or dataset_name == BINARY_MNIST:
+	marginalize_idx = None
+	if dataset_name in DEBD_DATASETS:
 		test_N, num_dims = test_x.shape
-		# marginalize_idx = random.sample(range(num_dims), int(0.5 * num_dims))
 		marginalize_idx = list(np.arange(int(num_dims * evidence_percentage), num_dims))
+	elif dataset_name == MNIST or dataset_name == BINARY_MNIST:
+		image_scope = np.array(range(MNIST_HEIGHT * MNIST_WIDTH)).reshape(MNIST_HEIGHT, MNIST_WIDTH)
+		marginalize_idx = list(image_scope[0:round(MNIST_HEIGHT * (1 - evidence_percentage)), :].reshape(-1))
 
-		ratspn.eval()
-		data_test = TensorDataset(test_x)
+	ratspn.eval()
+	data_test = TensorDataset(test_x)
 
-		mean_ll, std_ll = test_model(model=ratspn,
-									 data_test=data_test,
-									 setting=CONDITIONAL,
-									 batch_size=DEFAULT_EVAL_BATCH_SIZE,
-									 device=device,
-									 marginalize_idx=marginalize_idx)
-		return mean_ll, std_ll
+	mean_ll, std_ll = test_model(model=ratspn,
+								 data_test=data_test,
+								 setting=CONDITIONAL,
+								 batch_size=DEFAULT_EVAL_BATCH_SIZE,
+								 device=device,
+								 marginalize_idx=marginalize_idx)
+	return mean_ll, std_ll
 
 
 def generate_conditional_adv_samples(ratspn, dataset_name, ratspn_args, test_x, epsilon=0.05):
@@ -221,7 +224,7 @@ def generate_conditional_adv_samples(ratspn, dataset_name, ratspn_args, test_x, 
 		save_image_stack(ground_truth, 5, 5, os.path.join(DATASET_CONDITIONAL_SAMPLES_DIR, ground_truth_file),
 						 margin_gray_val=0.)
 
-		test_batch_x = test_x[0:25, :]
+		test_batch_x = test_x[0:25, :].clone()
 		test_batch_x[:, marginalize_idx] = np.nan
 
 		mpe_reconstruction = ratspn.mpe(x=test_batch_x).cpu().numpy()
@@ -243,21 +246,19 @@ def train_clean_ratspn(dataset_name, ratspn, train_x, valid_x, test_x, ratspn_ar
 	ratspn.train()
 
 	file_path = get_model_file_path(dataset_name, ratspn_args)
+	data_train = TensorDataset(train_x)
+	data_valid = TensorDataset(valid_x)
 
-	data_train, data_valid = None, None
-	if dataset_name in DISCRETE_DATASETS:
-		data_train = TensorDataset(train_x)
-		data_valid = TensorDataset(valid_x)
-	elif dataset_name in CONTINUOUS_DATASETS:
-		data_train = TensorDataset(train_x, train_labels)
-		data_valid = TensorDataset(valid_x, valid_labels)
+	batch_size = DEFAULT_TRAIN_BATCH_SIZE
+	if ratspn_args[NUM_INPUT_DISTRIBUTIONS] == 50:
+		batch_size = 50
 
 	train_model(model=ratspn,
 				data_train=data_train,
 				data_valid=data_valid,
 				setting=GENERATIVE,
 				lr=DEFAULT_LEARNING_RATE,
-				batch_size=DEFAULT_TRAIN_BATCH_SIZE,
+				batch_size=batch_size,
 				epochs=MAX_NUM_EPOCHS,
 				patience=DEFAULT_PATIENCE,
 				device=device)
@@ -277,12 +278,10 @@ def train_adv_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x, valid
 															ratspn_args[NUM_INPUT_DISTRIBUTIONS],
 															DEFAULT_NUM_REPETITIONS, epsilon))
 
-	DATA_DIRECTORY = "data/{}/augmented/sparsefool".format(dataset_name)
-
-
-	attack = None
+	attack, DATA_DIRECTORY = None, None
 	if dataset_name == MNIST or dataset_name == BINARY_MNIST:
 		attack = sparsefool_attack
+		DATA_DIRECTORY = "data/{}/augmented/sparsefool".format(dataset_name)
 
 	train_file_path = os.path.join(DATA_DIRECTORY, "train_dataset.pt")
 	valid_file_path = os.path.join(DATA_DIRECTORY, "valid_dataset.pt")
@@ -292,21 +291,25 @@ def train_adv_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x, valid
 		data_valid = torch.load(valid_file_path)
 	else:
 		mkdir_p(DATA_DIRECTORY)
-		train_x, train_labels = attack.generate_adv_dataset(train_x, train_labels, dataset_name, combine=True)
-		valid_x, valid_labels = attack.generate_adv_dataset(valid_x, valid_labels, dataset_name, combine=True)
+		train_x, train_labels = attack.generate_adv_dataset(dataset_name, train_x, train_labels, combine=True)
+		valid_x, valid_labels = attack.generate_adv_dataset(dataset_name, valid_x, valid_labels, combine=True)
 
-		data_train = TensorDataset(train_x, train_labels)
-		data_valid = TensorDataset(valid_x, valid_labels)
+		data_train = TensorDataset(train_x)
+		data_valid = TensorDataset(valid_x)
 
 		torch.save(data_train, train_file_path)
 		torch.save(data_valid, valid_file_path)
+
+	batch_size = DEFAULT_TRAIN_BATCH_SIZE
+	if ratspn_args[NUM_INPUT_DISTRIBUTIONS] == 50:
+		batch_size = 50
 
 	train_model(model=ratspn,
 				data_train=data_train,
 				data_valid=data_valid,
 				setting=GENERATIVE,
 				lr=DEFAULT_LEARNING_RATE,
-				batch_size=DEFAULT_TRAIN_BATCH_SIZE,
+				batch_size=batch_size,
 				epochs=MAX_NUM_EPOCHS,
 				patience=DEFAULT_PATIENCE,
 				device=device)
@@ -317,12 +320,36 @@ def train_adv_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x, valid
 
 def test_clean_spn(dataset_name, ratspn, test_x, test_labels=None, batch_size=100):
 	ratspn.eval()
+	data_test = TensorDataset(test_x)
+	mean_ll, std_ll = test_model(model=ratspn,
+								 data_test=data_test,
+								 setting=GENERATIVE,
+								 batch_size=batch_size,
+								 device=device)
+	return mean_ll, std_ll
 
-	data_test = None
-	if dataset_name in DISCRETE_DATASETS:
+
+def fetch_adv_test_data(ratspn, dataset_name, test_x, test_labels):
+	attack, DATA_DIRECTORY = None, None
+	if dataset_name == MNIST or dataset_name == BINARY_MNIST:
+		attack = sparsefool_attack
+		DATA_DIRECTORY = "data/{}/augmented/sparsefool".format(dataset_name)
+
+	test_file_path = os.path.join(DATA_DIRECTORY, "test_dataset.pt")
+	if os.path.exists(test_file_path):
+		data_test = torch.load(test_file_path)
+	else:
+		test_x, test_labels = attack.generate_adv_dataset(dataset_name, test_x, test_labels, combine=False)
 		data_test = TensorDataset(test_x)
-	elif dataset_name in CONTINUOUS_DATASETS:
-		data_test = TensorDataset(test_x, test_labels)
+		mkdir_p(DATA_DIRECTORY)
+		torch.save(data_test, test_file_path)
+	return data_test
+
+
+def test_adv_spn(ratspn, dataset_name, test_x, test_labels, batch_size=100, epsilon=0.05):
+	ratspn.eval()
+
+	data_test = fetch_adv_test_data(ratspn, dataset_name, test_x, test_labels)
 
 	mean_ll, std_ll = test_model(model=ratspn,
 								 data_test=data_test,
@@ -333,26 +360,22 @@ def test_clean_spn(dataset_name, ratspn, test_x, test_labels=None, batch_size=10
 	return mean_ll, std_ll
 
 
-def test_adv_spn(ratspn, dataset_name, test_x, test_labels, batch_size=100, epsilon=0.05):
+def test_conditional_adv_likelihood(ratspn, dataset_name, evidence_percentage, ratspn_args, test_x, test_labels):
+	marginalize_idx = None
+	if dataset_name in DEBD_DATASETS:
+		test_N, num_dims = test_x.shape
+		marginalize_idx = list(np.arange(int(num_dims * evidence_percentage), num_dims))
+	elif dataset_name == MNIST or dataset_name == BINARY_MNIST:
+		image_scope = np.array(range(MNIST_HEIGHT * MNIST_WIDTH)).reshape(MNIST_HEIGHT, MNIST_WIDTH)
+		marginalize_idx = list(image_scope[0:round(MNIST_HEIGHT * (1 - evidence_percentage)), :].reshape(-1))
+
 	ratspn.eval()
-
-	attack = None
-	if dataset_name == MNIST:
-		attack = sparsefool_attack
-
-	test_file_path = os.path.join(DATA_MNIST_ADV_SPARSEFOOL, "test_dataset.pt")
-	if os.path.exists(test_file_path):
-		data_test = torch.load(test_file_path)
-	else:
-		test_x, test_labels = attack.generate_adv_dataset(test_x, test_labels, dataset_name, combine=False)
-		data_test = TensorDataset(test_x, test_labels)
-		mkdir_p(DATA_MNIST_ADV_SPARSEFOOL)
-		torch.save(data_test, test_file_path)
+	data_test = fetch_adv_test_data(ratspn, dataset_name, test_x, test_labels)
 
 	mean_ll, std_ll = test_model(model=ratspn,
 								 data_test=data_test,
-								 setting=GENERATIVE,
-								 batch_size=batch_size,
-								 device=device)
-
+								 setting=CONDITIONAL,
+								 batch_size=DEFAULT_EVAL_BATCH_SIZE,
+								 device=device,
+								 marginalize_idx=marginalize_idx)
 	return mean_ll, std_ll
