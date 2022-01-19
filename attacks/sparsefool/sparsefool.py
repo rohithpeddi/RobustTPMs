@@ -5,9 +5,10 @@ from torch.autograd import Variable
 from attacks.sparsefool.attack_utils import clip_image_values
 from attacks.sparsefool.deepfool import deepfool
 
+from constants import *
+
 
 def sparsefool(x_0, net, lb, ub, lambda_=3., max_iter=20, epsilon=0.02, device='cuda'):
-
     pred_label = torch.argmax(net.forward(Variable(x_0, requires_grad=True)).data).item()
 
     x_i = copy.deepcopy(x_0)
@@ -17,10 +18,12 @@ def sparsefool(x_0, net, lb, ub, lambda_=3., max_iter=20, epsilon=0.02, device='
     loops = 0
 
     while fool_label == pred_label and loops < max_iter:
-
         normal, x_adv = deepfool(x_i, net, lambda_, device=device)
 
         x_i = linear_solver(x_i, normal, x_adv, lb, ub)
+
+        x_i[x_i < BINARY_DEBD_THRESHOLD] = 0
+        x_i[x_i > BINARY_DEBD_THRESHOLD] = 1
 
         fool_im = x_0 + (1 + epsilon) * (x_i - x_0)
         fool_im = clip_image_values(fool_im, lb, ub)

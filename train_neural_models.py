@@ -117,6 +117,14 @@ def train_debd(dataset_name):
 	print(" Training Neural Network for {}".format(dataset_name))
 	print("--------------------------------------------------------------------")
 
+	train_kwargs = {'batch_size': 100}
+	test_kwargs = {'batch_size': 100}
+	if torch.cuda.is_available():
+		cuda_kwargs = {'num_workers': 1,
+					   'shuffle': True}
+		train_kwargs.update(cuda_kwargs)
+		test_kwargs.update(cuda_kwargs)
+
 	train_x, valid_x, test_x = datasets.load_debd(dataset_name)
 	train_labels, valid_labels, test_labels = generate_debd_labels(dataset_name, train_x, valid_x, test_x)
 
@@ -126,13 +134,15 @@ def train_debd(dataset_name):
 
 	data_train = TensorDataset(train_x, train_labels)
 	data_test = TensorDataset(test_x, test_labels)
+	data_valid = TensorDataset(valid_x, valid_labels)
 
-	train_loader = torch.utils.data.DataLoader(data_train, shuffle=True, batch_size=TRAIN_BATCH_SIZE)
-	test_loader = torch.utils.data.DataLoader(data_test, shuffle=True, batch_size=EVAL_BATCH_SIZE)
+	train_loader = torch.utils.data.DataLoader(data_train, **train_kwargs)
+	test_loader = torch.utils.data.DataLoader(data_test, **test_kwargs)
 
 	# Training settings
 	model = DEBNet(train_x.shape[1], 10).to(device)
-	optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=1e-3, amsgrad=False)
+	optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999),
+						   eps=1e-08, weight_decay=0, amsgrad=False)
 	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
 		train(model, train_loader, optimizer, epoch)
 		test(model, test_loader)
@@ -140,7 +150,7 @@ def train_debd(dataset_name):
 	mkdir_p(DEBD_NET_PATH)
 	torch.save(model.state_dict(), os.path.join(DEBD_NET_PATH, "{}.pt".format(dataset_name)))
 
-	del model, train_x, valid_x, test_x, train_labels, valid_labels, test_labels, data_train, data_test
+	del model, train_x, valid_x, test_x, train_labels, valid_labels, test_labels, data_train, data_valid, data_test
 	torch.cuda.empty_cache()
 
 
@@ -150,6 +160,14 @@ def train_debd_datasets():
 
 
 def train_binary_mnist():
+	train_kwargs = {'batch_size': 100}
+	test_kwargs = {'batch_size': 100}
+	if torch.cuda.is_available():
+		cuda_kwargs = {'num_workers': 1,
+					   'shuffle': True}
+		train_kwargs.update(cuda_kwargs)
+		test_kwargs.update(cuda_kwargs)
+
 	train_x, valid_x, test_x = datasets.load_binarized_mnist_dataset()
 
 	train_x = train_x.reshape((-1, MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH))
@@ -183,5 +201,5 @@ def train_binary_mnist():
 
 if __name__ == '__main__':
 	# train_mnist()
-	train_debd_datasets()
-	# train_binary_mnist()
+	# train_debd_datasets()
+	train_binary_mnist()
