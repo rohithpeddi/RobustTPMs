@@ -164,5 +164,5 @@ def test_standard_spn_discrete(specific_datasets=None):
 
 
 if __name__ == '__main__':
-	test_standard_spn_discrete([BINARY_MNIST])
+	test_standard_spn_discrete(DEBD_DATASETS)
 	# test_standard_spn_discrete(['plants'])

@@ -23,7 +23,7 @@ GENERATIVE_NUM_CLASSES = 1
 MNIST_HEIGHT = 28
 MNIST_WIDTH = 28
 
-MAX_NUM_EPOCHS = 200
+MAX_NUM_EPOCHS = 1
 
 DEFAULT_PATIENCE = 30
 DEFAULT_LEAF_DROPOUT = 0.2
@@ -47,8 +47,8 @@ EVAL_BATCH_SIZE = 50
 DEFAULT_DEPTH = 3
 NUM_CLUSTERS = 10
 
-NUM_INPUT_DISTRIBUTIONS_LIST = [10, 20, 30, 40, 50]
-# NUM_INPUT_DISTRIBUTIONS_LIST = [40, 50]
+# NUM_INPUT_DISTRIBUTIONS_LIST = [10, 20, 30, 40, 50]
+NUM_INPUT_DISTRIBUTIONS_LIST = [10]
 EPSILON_LIST = [0.05, 0.1, 0.2, 0.3]
 EVIDENCE_PERCENTAGES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
@@ -67,7 +67,12 @@ DATA_MNIST_ADV_SPARSEFOOL = "data/MNIST/augmented/sparsefool"
 DATA_DEBD_DIRECTORY = "data/DEBD/datasets"
 CLUSTERED_DATA_DEBD_DIRECTORY = "data/DEBD/clustered"
 
-DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
+# DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
+# 					 'jester', 'bnetflix', 'tretail', 'pumsb_star',
+# 					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
+# 					 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
+
+DEBD_DATASETS = [ 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
 					 'jester', 'bnetflix', 'tretail', 'pumsb_star',
 					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
 					 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
