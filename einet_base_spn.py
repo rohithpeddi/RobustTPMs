@@ -14,6 +14,8 @@ from utils import predict_labels_mnist
 from attacks.sparsefool import attack as sparsefool_attack
 from train_neural_models import generate_debd_labels
 
+from deeprob.torch.callbacks import EarlyStopping
+
 ############################################################################
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -294,42 +296,74 @@ def generate_conditional_adv_samples(einet, structure, dataset_name, einet_args,
 						 os.path.join(DATASET_CONDITIONAL_SAMPLES_DIR, mpe_reconstruction_file), margin_gray_val=0.)
 
 
+def fetch_num_epochs(dataset_name):
+	NUM_EPOCHS = EINET_MAX_NUM_EPOCHS
+
+	if dataset_name in ['bnetflix', 'kosarek', 'msweb', 'tretail', 'plants', 'accidents', 'nltcs', 'msnbc', 'kdd',
+						'pumsb_star', 'jester']:
+		NUM_EPOCHS = 30
+	elif dataset_name in ['baudio']:
+		NUM_EPOCHS = 40
+	elif dataset_name in ['c20ng', 'dna']:
+		NUM_EPOCHS = 100
+	elif dataset_name in ['ad', 'cr52', 'cwebkb', 'tmovie', 'book']:
+		NUM_EPOCHS = 150
+	elif dataset_name in ['bbc', ]:
+		NUM_EPOCHS = 150
+	return NUM_EPOCHS
+
+
+def epoch_einet_train(train_dataloader, einet, epoch, dataset_name, weight=1):
+	train_dataloader = tqdm(
+		train_dataloader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
+		desc='Training epoch : {}, for dataset : {}'.format(epoch, dataset_name),
+		unit='batch'
+	)
+	einet.train()
+	for inputs in train_dataloader:
+		outputs = einet.forward(inputs[0])
+		ll_sample = weight * EinsumNetwork.log_likelihoods(outputs)
+		log_likelihood = ll_sample.sum()
+
+		objective = log_likelihood
+		objective.backward()
+
+		einet.em_process_batch()
+	einet.em_update()
+
+
+def evaluate_lls(einet, train_x, valid_x, test_x, epoch_count=0):
+	# Evaluate
+	einet.eval()
+	train_ll = EinsumNetwork.eval_loglikelihood_batched(einet, train_x, batch_size=EVAL_BATCH_SIZE)
+	valid_ll = EinsumNetwork.eval_loglikelihood_batched(einet, valid_x, batch_size=EVAL_BATCH_SIZE)
+	test_ll = EinsumNetwork.eval_loglikelihood_batched(einet, test_x, batch_size=EVAL_BATCH_SIZE)
+	print("[{}] train LL {} valid LL {} test LL {}".format(epoch_count, train_ll / train_x.shape[0],
+														   valid_ll / valid_x.shape[0], test_ll / test_x.shape[0]))
+	return train_ll / train_x.shape[0], valid_ll / valid_x.shape[0], test_ll / test_x.shape[0]
+
+
 def train_einet(structure, dataset_name, einet, train_x, train_labels, valid_x, valid_labels, test_x, test_labels,
 				einet_args, batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False):
-	einet.train()
-
 	if is_adv:
-		train_dataset = fetch_adv_data(einet, dataset_name, train_x, train_labels, adv_type=TRAIN_DATA)
+		train_dataset = fetch_adv_data(einet, dataset_name, train_x, train_labels, adv_type=TRAIN_DATASET)
 	else:
 		train_dataset = TensorDataset(train_x)
 
 	train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
 
-	for epoch_count in range(EINET_MAX_NUM_EPOCHS):
-		train_dataloader = tqdm(
-			train_dataloader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
-			desc='Training epoch : {}, for dataset : {}'.format(epoch_count, dataset_name),
-			unit='batch'
-		)
-		einet.train()
-		for inputs in train_dataloader:
-			outputs = einet.forward(inputs[0])
-			ll_sample = EinsumNetwork.log_likelihoods(outputs)
-			log_likelihood = ll_sample.sum()
+	early_stopping = EarlyStopping(einet, patience=DEFAULT_EINET_PATIENCE, filepath=EARLY_STOPPING_FILE,
+								   delta=EARLY_STOPPING_DELTA)
 
-			objective = log_likelihood
-			objective.backward()
-
-			einet.em_process_batch()
-		einet.em_update()
-
-		# Evaluate
-		einet.eval()
-		train_ll = EinsumNetwork.eval_loglikelihood_batched(einet, train_x, batch_size=EVAL_BATCH_SIZE)
-		valid_ll = EinsumNetwork.eval_loglikelihood_batched(einet, valid_x, batch_size=EVAL_BATCH_SIZE)
-		test_ll = EinsumNetwork.eval_loglikelihood_batched(einet, test_x, batch_size=EVAL_BATCH_SIZE)
-		print("[{}] train LL {} valid LL {} test LL {}".format(epoch_count, train_ll / train_x.shape[0],
-															   valid_ll / valid_x.shape[0], test_ll / test_x.shape[0]))
+	# NUM_EPOCHS = fetch_num_epochs(dataset_name)
+	NUM_EPOCHS = 1
+	for epoch_count in range(NUM_EPOCHS):
+		epoch_einet_train(train_dataloader, einet, epoch_count, dataset_name, weight=1)
+		train_ll, valid_ll, test_ll = evaluate_lls(einet, train_x, valid_x, test_x, epoch_count=epoch_count)
+		early_stopping(-valid_ll, epoch_count)
+		if early_stopping.should_stop:
+			print("Early Stopping... {}".format(early_stopping))
+			break
 
 	mkdir_p(EINET_MODEL_DIRECTORY)
 
@@ -351,7 +385,46 @@ def train_einet(structure, dataset_name, einet, train_x, train_labels, valid_x, 
 	return einet
 
 
-def fetch_adv_data(einet, dataset_name, inputs, labels, adv_type=TRAIN_DATA):
+def train_weighted_einet(structure, dataset_name, einet, train_x, train_labels, orig_train_size, valid_x, valid_labels,
+						 test_x,
+						 test_labels, einet_args, batch_size=DEFAULT_TRAIN_BATCH_SIZE):
+	einet.train()
+
+	original_train_data = train_x[0:orig_train_size, :]
+	augmented_train_data = train_x[original_train_data, :]
+
+	original_train_dataset = TensorDataset(original_train_data)
+	original_train_dataloader = DataLoader(original_train_dataset, batch_size, shuffle=True)
+
+	augmented_train_dataset = TensorDataset(augmented_train_data)
+	augmented_train_dataloader = DataLoader(augmented_train_dataset, batch_size, shuffle=True)
+
+	for epoch_count in range(EINET_MAX_NUM_EPOCHS):
+		epoch_einet_train(original_train_dataloader, einet, epoch_count, dataset_name, weight=1)
+		epoch_einet_train(augmented_train_dataloader, einet, epoch_count, dataset_name,
+						  weight=AUGMENTED_DATA_WEIGHT_PARAMETER)
+
+		# Evaluate
+		einet.eval()
+		train_ll = EinsumNetwork.eval_loglikelihood_batched(einet, train_x, batch_size=EVAL_BATCH_SIZE)
+		valid_ll = EinsumNetwork.eval_loglikelihood_batched(einet, valid_x, batch_size=EVAL_BATCH_SIZE)
+		test_ll = EinsumNetwork.eval_loglikelihood_batched(einet, test_x, batch_size=EVAL_BATCH_SIZE)
+		print("[{}] train LL {} valid LL {} test LL {}".format(epoch_count, train_ll / train_x.shape[0],
+															   valid_ll / valid_x.shape[0], test_ll / test_x.shape[0]))
+
+	mkdir_p(WEIGHTED_EINET_MODEL_DIRECTORY)
+
+	file_name = os.path.join(WEIGHTED_EINET_MODEL_DIRECTORY,
+							 "{}_{}_{}_{}_{}.mdl".format(structure, dataset_name, einet_args[NUM_SUMS],
+														 einet_args[NUM_INPUT_DISTRIBUTIONS],
+														 einet_args[NUM_REPETITIONS]))
+
+	torch.save(einet, file_name)
+
+	return einet
+
+
+def fetch_adv_data(einet, dataset_name, inputs, labels, adv_type=TRAIN_DATASET):
 	attack, DATA_DIRECTORY = None, None
 	if dataset_name == MNIST or dataset_name == BINARY_MNIST:
 		attack = sparsefool_attack
@@ -365,130 +438,9 @@ def fetch_adv_data(einet, dataset_name, inputs, labels, adv_type=TRAIN_DATA):
 	if os.path.exists(test_file_path):
 		data_test = torch.load(test_file_path)
 	else:
-		combine = True if adv_type == TRAIN_DATA or adv_type == VALID_DATA else False
+		combine = True if adv_type == TRAIN_DATASET or adv_type == VALID_DATASET else False
 		inputs, labels = attack.generate_adv_dataset(dataset_name, inputs, labels, combine=combine)
 		data_test = TensorDataset(inputs)
-		mkdir_p(DATA_DIRECTORY)
-		torch.save(data_test, test_file_path)
-	return data_test
-
-
-def train_clean_einet(structure, dataset_name, einet, train_x, train_labels, valid_x, valid_labels, test_x, test_labels,
-					  einet_args, batch_size=1):
-	einet.train()
-	train_dataset = TensorDataset(train_x, train_labels)
-	train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
-
-	for epoch_count in range(EINET_MAX_NUM_EPOCHS):
-		train_dataloader = tqdm(
-			train_dataloader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
-			desc='Training epoch : {}, for dataset : {}'.format(epoch_count, dataset_name),
-			unit='batch'
-		)
-		einet.train()
-		for data, target in train_dataloader:
-			outputs = einet.forward(data)
-			ll_sample = EinsumNetwork.log_likelihoods(outputs)
-			log_likelihood = ll_sample.sum()
-
-			objective = log_likelihood
-			objective.backward()
-
-			einet.em_process_batch()
-		einet.em_update()
-
-		# Evaluate
-		einet.eval()
-		train_ll = EinsumNetwork.eval_loglikelihood_batched(einet, train_x, batch_size=EVAL_BATCH_SIZE)
-		valid_ll = EinsumNetwork.eval_loglikelihood_batched(einet, valid_x, batch_size=EVAL_BATCH_SIZE)
-		test_ll = EinsumNetwork.eval_loglikelihood_batched(einet, test_x, batch_size=EVAL_BATCH_SIZE)
-		print("[{}]   train LL {}   valid LL {}   test LL {}".format(
-			epoch_count,
-			train_ll / train_x.shape[0],
-			valid_ll / valid_x.shape[0],
-			test_ll / test_x.shape[0]))
-
-	mkdir_p(EINET_MODEL_DIRECTORY)
-	file_name = os.path.join(EINET_MODEL_DIRECTORY,
-							 "{}_{}_{}_{}_{}.mdl".format(structure, dataset_name, einet_args[NUM_INPUT_DISTRIBUTIONS],
-														 einet_args[NUM_INPUT_DISTRIBUTIONS],
-														 einet_args[NUM_REPETITIONS]))
-	torch.save(einet, file_name)
-
-	return einet
-
-
-def train_robust_spn(structure, dataset_name, net, einet, train_x, train_labels, valid_x, valid_labels, test_x,
-					 test_labels, einet_args,
-					 batch_size=1, epsilon=0.05):
-	train_N = train_x.shape[0]
-	valid_N = valid_x.shape[0]
-	test_N = test_x.shape[0]
-
-	train_dataset = TensorDataset(train_x, train_labels)
-	train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
-
-	attack = None
-	if dataset_name == MNIST:
-		attack = fgsm_attack
-
-	for epoch_count in range(EINET_MAX_NUM_EPOCHS):
-		train_dataloader = tqdm(
-			train_dataloader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
-			desc='Training epoch : {}, for dataset : {}'.format(epoch_count, dataset_name),
-			unit='batch'
-		)
-		einet.train()
-		total_ll = 0.0
-		for data, target in train_dataloader:
-			adv_data = attack.generate_adv_sample_mnist(data, net, epsilon, target)
-			data = torch.cat((data, adv_data), dim=0)
-			outputs = einet.forward(data)
-			ll_sample = EinsumNetwork.log_likelihoods(outputs)
-			log_likelihood = ll_sample.sum()
-			log_likelihood.backward()
-			einet.em_process_batch()
-			total_ll += log_likelihood.detach().item()
-		einet.em_update()
-
-		# Evaluate
-		einet.eval()
-		train_ll = EinsumNetwork.eval_loglikelihood_batched(einet, train_x, batch_size=EVAL_BATCH_SIZE)
-		valid_ll = EinsumNetwork.eval_loglikelihood_batched(einet, valid_x, batch_size=EVAL_BATCH_SIZE)
-		test_ll = EinsumNetwork.eval_loglikelihood_batched(einet, test_x, batch_size=EVAL_BATCH_SIZE)
-		print("[{}]   train LL {}   valid LL {}   test LL {}".format(
-			epoch_count,
-			train_ll / train_N,
-			valid_ll / valid_N,
-			test_ll / test_N))
-
-	mkdir_p(EINET_MODEL_DIRECTORY)
-	file_name = os.path.join(EINET_MODEL_DIRECTORY,
-							 "{}_{}_{}_{}_{}_adv_{}.mdl".format(structure, dataset_name,
-																einet_args['num_input_distributions'],
-																einet_args['num_input_distributions'],
-																DEFAULT_NUM_REPETITIONS, epsilon))
-	torch.save(einet, file_name)
-
-	return einet
-
-
-def fetch_adv_test_data(ratspn, dataset_name, test_x, test_labels):
-	attack, DATA_DIRECTORY = None, None
-	if dataset_name == MNIST or dataset_name == BINARY_MNIST:
-		attack = sparsefool_attack
-		DATA_DIRECTORY = "data/{}/augmented/sparsefool".format(dataset_name)
-	elif dataset_name in DEBD_DATASETS:
-		attack = sparsefool_attack
-		DATA_DIRECTORY = "data/DEBD/datasets/{}/augmented/sparsefool/{}".format(dataset_name,
-																				BINARY_DEBD_HAMMING_THRESHOLD)
-
-	test_file_path = os.path.join(DATA_DIRECTORY, "test_dataset.pt")
-	if os.path.exists(test_file_path):
-		data_test = torch.load(test_file_path)
-	else:
-		test_x, test_labels = attack.generate_adv_dataset(dataset_name, test_x, test_labels, combine=False)
-		data_test = TensorDataset(test_x)
 		mkdir_p(DATA_DIRECTORY)
 		torch.save(data_test, test_file_path)
 	return data_test
@@ -497,7 +449,7 @@ def fetch_adv_test_data(ratspn, dataset_name, test_x, test_labels):
 def test_einet(dataset_name, einet, test_x, test_labels, einet_args, batch_size=1, is_adv=False):
 	einet.eval()
 	if is_adv:
-		test_x = fetch_adv_test_data(einet, dataset_name, test_x, test_labels).tensors[0]
+		test_x = fetch_adv_data(einet, dataset_name, test_x, test_labels, adv_type=TEST_DATASET).tensors[0]
 	test_lls = EinsumNetwork.fetch_likelihoods_for_data(einet, test_x, batch_size=batch_size)
 	mean_ll = (torch.mean(test_lls)).cpu().item()
 	stddev_ll = (2.0 * torch.std(test_lls) / np.sqrt(len(test_lls))).cpu().item()
@@ -517,7 +469,7 @@ def test_conditional_einet(dataset_name, einet, evidence_percentage, einet_args,
 	einet.eval()
 
 	if is_adv:
-		test_x = fetch_adv_test_data(einet, dataset_name, test_x, test_labels).tensors[0]
+		test_x = fetch_adv_data(einet, dataset_name, test_x, test_labels, adv_type=TEST_DATASET).tensors[0]
 
 	test_lls = EinsumNetwork.fetch_conditional_likelihoods_for_data(einet, test_x, marginalize_idx=marginalize_idx,
 																	batch_size=batch_size)

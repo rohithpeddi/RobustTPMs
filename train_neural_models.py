@@ -80,8 +80,8 @@ def train_mnist():
 		transforms.Normalize((0.1307,), (0.3081,))
 	])
 
-	dataset1 = torch_datasets.MNIST(DATA_DIR, train=True, download=True, transform=transform)
-	dataset2 = torch_datasets.MNIST(DATA_DIR, train=False, transform=transform)
+	dataset1 = torch_datasets.MNIST(DATA_DIRECTORY, train=True, download=True, transform=transform)
+	dataset2 = torch_datasets.MNIST(DATA_DIRECTORY, train=False, transform=transform)
 	train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
 	test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 

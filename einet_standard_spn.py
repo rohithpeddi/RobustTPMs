@@ -96,7 +96,7 @@ def test_standard_spn_continuous():
 					SPN.generate_conditional_samples(einet, structure, dataset_name, einet_args, test_x)
 
 
-def test_standard_spn_discrete(specific_datasets=None):
+def test_standard_spn_discrete(specific_datasets=None, is_adv=False):
 	if specific_datasets is None:
 		specific_datasets = DISCRETE_DATASETS
 	else:
@@ -158,19 +158,27 @@ def test_standard_spn_discrete(specific_datasets=None):
 
 				einet = SPN.load_einet(structure, dataset_name, einet_args)
 
-				evaluation_message("Training einet")
+				trained_einet = None
+				if is_adv:
+					evaluation_message("Training adversarial einet")
+					trained_einet = SPN.train_einet(structure, dataset_name, einet, train_x, train_labels, valid_x,
+													valid_labels, test_x, test_labels, einet_args,
+													batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=True)
+				else:
+					evaluation_message("Training clean einet")
+					trained_einet = SPN.train_einet(structure, dataset_name, einet, train_x, train_labels, valid_x,
+													valid_labels, test_x, test_labels, einet_args,
+													batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False)
 
-				trained_einet = SPN.train_clean_einet(structure, dataset_name, einet, train_x, train_labels, valid_x,
-													   valid_labels, test_x, test_labels, einet_args,
-													   batch_size=TRAIN_BATCH_SIZE)
-
-				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, einet_args, batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
+				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, einet_args,
+												 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
 				evaluation_message("Clean Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
 
 				dataset_distribution_results['Clean Mean LL'] = mean_ll
 				dataset_distribution_results['Clean Std LL'] = std_ll
 
-				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, einet_args, batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
+				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, einet_args,
+												 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
 				evaluation_message("Adv Test - Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
 
 				dataset_distribution_results['Adv Mean LL'] = mean_ll
@@ -186,8 +194,9 @@ def test_standard_spn_discrete(specific_datasets=None):
 				for evidence_percentage in EVIDENCE_PERCENTAGES:
 					dataset_distribution_evidence_results = dict()
 
-					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage, einet_args, test_x, test_labels,
-										   batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
+					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
+																 einet_args, test_x, test_labels,
+																 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
 					evaluation_message(
 						"Clean Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage,
 																							mean_ll,
@@ -195,8 +204,9 @@ def test_standard_spn_discrete(specific_datasets=None):
 					dataset_distribution_evidence_results['Clean Mean LL'] = mean_ll
 					dataset_distribution_evidence_results['Clean Std LL'] = std_ll
 
-					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage, einet_args, test_x, test_labels,
-										   batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
+					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
+																 einet_args, test_x, test_labels,
+																 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
 					evaluation_message(
 						"Adv Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll,
 																						  std_ll))
@@ -207,10 +217,10 @@ def test_standard_spn_discrete(specific_datasets=None):
 				dataset_results[num_distributions] = dataset_distribution_results
 
 		results[dataset_name] = dataset_results
-		dictionary_to_file(dataset_name, dataset_results, is_adv=False, is_einet=True)
+		dictionary_to_file(dataset_name, dataset_results, is_adv=is_adv, is_einet=True)
 		pretty_print_dictionary(dataset_results)
 	pretty_print_dictionary(results)
 
 
 if __name__ == '__main__':
-	test_standard_spn_discrete(DEBD_DATASETS)
+	test_standard_spn_discrete(DEBD_DATASETS, is_adv=True)

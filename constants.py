@@ -24,10 +24,11 @@ ONLINE_EM_FREQUENCY = 'online_em_frequency'
 ONLINE_EM_STEPSIZE = 'online_em_stepsize'
 
 EINET_MODEL_DIRECTORY = "checkpoints/einet"
+WEIGHTED_EINET_MODEL_DIRECTORY = "checkpoints/weighted_einet"
 
-TRAIN_DATA = "training_data"
-TEST_DATA = "test_data"
-VALID_DATA = "valid_data"
+TRAIN_DATASET = "train_dataset"
+TEST_DATASET = "test_dataset"
+VALID_DATASET = "valid_dataset"
 
 MODEL_DIRECTORY = "checkpoints/models"
 MNIST_MODEL_DIRECTORY = "checkpoints/models/mnist"
@@ -43,9 +44,12 @@ MNIST_WIDTH = 28
 
 EINET_MAX_NUM_EPOCHS = 30
 MAX_NUM_EPOCHS = 400
-EARLY_STOPPING_DELTA = 1e-4
 
+EARLY_STOPPING_DELTA = 1e-5
 DEFAULT_PATIENCE = 30
+DEFAULT_EINET_PATIENCE = 6
+EARLY_STOPPING_FILE = 'checkpoint.pt'
+
 DEFAULT_LEAF_DROPOUT = 0.2
 DEFAULT_SUM_DROPOUT = 0.2
 DEFAULT_NUM_REPETITIONS = 50
@@ -57,9 +61,12 @@ BINARY_MNIST_THRESHOLD = 0.7
 BINARY_MNIST_HAMMING_THRESHOLD = 7
 
 BINARY_DEBD_THRESHOLD = 0.7
-BINARY_DEBD_HAMMING_THRESHOLD = 1
+BINARY_DEBD_HAMMING_THRESHOLD = 3
 
-NUM_CLASSES = 1
+DEFAULT_GENERATIVE_NUM_CLASSES = 1
+
+AUGMENTED_DATA_WEIGHT_PARAMETER = 0.5
+
 
 TRAIN_BATCH_SIZE = 50
 EVAL_BATCH_SIZE = 50
@@ -94,10 +101,7 @@ RATSPN_DEBD_RESULTS_DIRECTORY = "results/ratspn/DEBD"
 RATSPN_BINARY_MNIST_RESULTS_DIRECTORY = "results/ratspn/binary_mnist"
 RATSPN_MNIST_RESULTS_DIRECTORY = "results/ratspn/mnist"
 
-# DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
-# 					 'jester', 'bnetflix', 'tretail', 'pumsb_star',
-# 					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
-# 					 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
+# DEBD_DATASETS = [ 'baudio', 'jester', 'bnetflix', 'tretail', 'dna', 'kosarek', 'msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad', 'msnbc']
 
 DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
 				 'jester', 'bnetflix', 'tretail', 'pumsb_star',
@@ -114,7 +118,7 @@ DISCRETE_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
 
 TRAIN_NEURAL_NET_MAX_NUM_EPOCHS = 100
 
-DATA_DIR = "data/"
+DATA_DIRECTORY = "data/"
 MNIST_NET_PATH = "checkpoints/neural/mnist/"
 MNIST_NET_FILE = "mnist_cnn.pt"
 BINARY_MNIST_NET_FILE = "binary_mnist_cnn.pt"
@@ -135,3 +139,6 @@ DEFAULT_ONLINE_EM_STEPSIZE = 0.05
 DEFAULT_ONLINE_EM_FREQUENCY = 50
 
 DEFAULT_PD_NUM_PIECES = [4]
+
+
+EXPERIMENTS_DIRECTORY = "checkpoints/experiments"

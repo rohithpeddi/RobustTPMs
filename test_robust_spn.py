@@ -48,7 +48,7 @@ def test_adv_spn_continuous():
 
 					ratspn_args = dict()
 					ratspn_args[N_FEATURES] = MNIST_HEIGHT * MNIST_WIDTH
-					ratspn_args[OUT_CLASSES] = NUM_CLASSES
+					ratspn_args[OUT_CLASSES] = DEFAULT_GENERATIVE_NUM_CLASSES
 					ratspn_args[DEPTH] = DEFAULT_DEPTH
 					ratspn_args[NUM_SUMS] = num_distributions
 					ratspn_args[NUM_INPUT_DISTRIBUTIONS] = num_distributions
@@ -104,7 +104,7 @@ def test_standard_spn_discrete(specific_datasets=None):
 
 			ratspn_args = dict()
 			ratspn_args[N_FEATURES] = train_x.shape[1]
-			ratspn_args[OUT_CLASSES] = NUM_CLASSES
+			ratspn_args[OUT_CLASSES] = DEFAULT_GENERATIVE_NUM_CLASSES
 			ratspn_args[DEPTH] = DEFAULT_DEPTH
 			ratspn_args[NUM_SUMS] = num_distributions
 			ratspn_args[NUM_INPUT_DISTRIBUTIONS] = num_distributions
