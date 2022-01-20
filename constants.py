@@ -11,6 +11,24 @@ NUM_SUMS = "num_sums"
 GENERATIVE = 'generative'
 CONDITIONAL = 'conditional'
 
+HEIGHT = 'height'
+WIDTH = 'width'
+PD_NUM_PIECES = 'pd_num_pieces'
+NUM_VAR = 'num_var'
+POON_DOMINGOS = "poon_domingos"
+BINARY_TREES = "binary_trees"
+
+EXPONENTIAL_FAMILY = 'exponential_family'
+EXPONENTIAL_FAMILY_ARGS = 'exponential_family_args'
+ONLINE_EM_FREQUENCY = 'online_em_frequency'
+ONLINE_EM_STEPSIZE = 'online_em_stepsize'
+
+EINET_MODEL_DIRECTORY = "checkpoints/einet"
+
+TRAIN_DATA = "training_data"
+TEST_DATA = "test_data"
+VALID_DATA = "valid_data"
+
 MODEL_DIRECTORY = "checkpoints/models"
 MNIST_MODEL_DIRECTORY = "checkpoints/models/mnist"
 DEBD_MODEL_DIRECTORY = "checkpoints/models/DEBD"
@@ -23,12 +41,14 @@ GENERATIVE_NUM_CLASSES = 1
 MNIST_HEIGHT = 28
 MNIST_WIDTH = 28
 
-MAX_NUM_EPOCHS = 1
+EINET_MAX_NUM_EPOCHS = 30
+MAX_NUM_EPOCHS = 400
+EARLY_STOPPING_DELTA = 1e-4
 
 DEFAULT_PATIENCE = 30
 DEFAULT_LEAF_DROPOUT = 0.2
 DEFAULT_SUM_DROPOUT = 0.2
-DEFAULT_NUM_REPETITIONS = 10
+DEFAULT_NUM_REPETITIONS = 50
 DEFAULT_LEARNING_RATE = 1e-2
 DEFAULT_TRAIN_BATCH_SIZE = 100
 DEFAULT_EVAL_BATCH_SIZE = 100
@@ -37,7 +57,7 @@ BINARY_MNIST_THRESHOLD = 0.7
 BINARY_MNIST_HAMMING_THRESHOLD = 7
 
 BINARY_DEBD_THRESHOLD = 0.7
-BINARY_DEBD_HAMMING_THRESHOLD = 5
+BINARY_DEBD_HAMMING_THRESHOLD = 1
 
 NUM_CLASSES = 1
 
@@ -61,21 +81,28 @@ LAMBDA = 3.
 MNIST_NET_DIRECTORY = "checkpoints/mnist"
 DEFAULT_SPARSEFOOL_ATTACK_BATCH_SIZE = 1
 
-
 DATA_MNIST_ADV_SPARSEFOOL = "data/MNIST/augmented/sparsefool"
 
 DATA_DEBD_DIRECTORY = "data/DEBD/datasets"
 CLUSTERED_DATA_DEBD_DIRECTORY = "data/DEBD/clustered"
+
+EINET_DEBD_RESULTS_DIRECTORY = "results/einet/DEBD"
+EINET_BINARY_MNIST_RESULTS_DIRECTORY = "results/einet/binary_mnist"
+EINET_MNIST_RESULTS_DIRECTORY = "results/einet/mnist"
+
+RATSPN_DEBD_RESULTS_DIRECTORY = "results/ratspn/DEBD"
+RATSPN_BINARY_MNIST_RESULTS_DIRECTORY = "results/ratspn/binary_mnist"
+RATSPN_MNIST_RESULTS_DIRECTORY = "results/ratspn/mnist"
 
 # DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
 # 					 'jester', 'bnetflix', 'tretail', 'pumsb_star',
 # 					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
 # 					 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
-DEBD_DATASETS = [ 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
-					 'jester', 'bnetflix', 'tretail', 'pumsb_star',
-					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
-					 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
+DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
+				 'jester', 'bnetflix', 'tretail', 'pumsb_star',
+				 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
+				 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
 CONTINUOUS_DATASETS = [MNIST]
 DISCRETE_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
@@ -96,3 +123,15 @@ BINARY_MNIST_NET_PATH = "checkpoints/neural/binary_mnist"
 DEBD_NET_PATH = "checkpoints/neural/DEBD"
 
 MANUAL_SEED = 999
+
+##############################################################################################
+
+
+STRUCTURES = [POON_DOMINGOS, BINARY_TREES]
+
+STRUCTURE_DIRECTORY = "checkpoints/structure"
+
+DEFAULT_ONLINE_EM_STEPSIZE = 0.05
+DEFAULT_ONLINE_EM_FREQUENCY = 50
+
+DEFAULT_PD_NUM_PIECES = [4]

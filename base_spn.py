@@ -20,15 +20,6 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 ############################################################################
 
-def load_debd_dataset(dataset_name):
-	train_x, test_x, valid_x = datasets.load_debd(dataset_name)
-
-	train_x = torch.tensor(train_x, dtype=torch.float32, device=torch.device(device))
-	valid_x = torch.tensor(valid_x, dtype=torch.float32, device=torch.device(device))
-	test_x = torch.tensor(test_x, dtype=torch.float32, device=torch.device(device))
-
-	return train_x, valid_x, test_x
-
 
 def load_dataset(dataset_name):
 	train_x, train_labels, test_x, test_labels, valid_x, valid_labels = None, None, None, None, None, None
@@ -283,13 +274,17 @@ def train_clean_ratspn(dataset_name, ratspn, train_x, valid_x, test_x, ratspn_ar
 def train_adv_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x, valid_labels, test_x, test_labels,
 					 ratspn_args, batch_size=100, epsilon=0.05):
 	ratspn.train()
-	RATSPN_MODEL_DIRECTORY = os.path.join(MODEL_DIRECTORY, dataset_name)
+
+	if dataset_name in DEBD_DATASETS:
+		RATSPN_MODEL_DIRECTORY = os.path.join(DEBD_MODEL_DIRECTORY, dataset_name + "/{}".format(BINARY_DEBD_HAMMING_THRESHOLD))
+	else:
+		RATSPN_MODEL_DIRECTORY = os.path.join(MODEL_DIRECTORY, dataset_name)
 	mkdir_p(RATSPN_MODEL_DIRECTORY)
 
 	file_path = os.path.join(RATSPN_MODEL_DIRECTORY,
 							 "{}_{}_{}_{}_{}_adv.pt".format(dataset_name, ratspn_args[NUM_SUMS],
 															ratspn_args[NUM_INPUT_DISTRIBUTIONS],
-															DEFAULT_NUM_REPETITIONS, epsilon))
+															ratspn_args[NUM_REPETITIONS], epsilon))
 
 	attack, DATA_DIRECTORY = None, None
 	if dataset_name == MNIST or dataset_name == BINARY_MNIST:
@@ -297,7 +292,7 @@ def train_adv_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x, valid
 		DATA_DIRECTORY = "data/{}/augmented/sparsefool".format(dataset_name)
 	elif dataset_name in DEBD_DATASETS:
 		attack = sparsefool_attack
-		DATA_DIRECTORY = "data/DEBD/datasets/{}/augmented/sparsefool".format(dataset_name)
+		DATA_DIRECTORY = "data/DEBD/datasets/{}/augmented/sparsefool/{}".format(dataset_name, BINARY_DEBD_HAMMING_THRESHOLD)
 
 	train_file_path = os.path.join(DATA_DIRECTORY, "train_dataset.pt")
 	valid_file_path = os.path.join(DATA_DIRECTORY, "valid_dataset.pt")
@@ -307,8 +302,12 @@ def train_adv_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x, valid
 		data_valid = torch.load(valid_file_path)
 	else:
 		mkdir_p(DATA_DIRECTORY)
+		original_N = train_x.shape[0]
 		train_x, train_labels = attack.generate_adv_dataset(dataset_name, train_x, train_labels, combine=True)
 		valid_x, valid_labels = attack.generate_adv_dataset(dataset_name, valid_x, valid_labels, combine=True)
+		augmented_N = train_x.shape[0]
+
+		print("Generated {} adversarial samples".format(augmented_N-original_N))
 
 		data_train = TensorDataset(train_x)
 		data_valid = TensorDataset(valid_x)
@@ -352,7 +351,7 @@ def fetch_adv_test_data(ratspn, dataset_name, test_x, test_labels):
 		DATA_DIRECTORY = "data/{}/augmented/sparsefool".format(dataset_name)
 	elif dataset_name in DEBD_DATASETS:
 		attack = sparsefool_attack
-		DATA_DIRECTORY = "data/DEBD/{}/augmented/sparsefool".format(dataset_name)
+		DATA_DIRECTORY = "data/DEBD/datasets/{}/augmented/sparsefool/{}".format(dataset_name, BINARY_DEBD_HAMMING_THRESHOLD)
 
 	test_file_path = os.path.join(DATA_DIRECTORY, "test_dataset.pt")
 	if os.path.exists(test_file_path):

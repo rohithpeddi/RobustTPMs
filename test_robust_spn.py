@@ -1,13 +1,14 @@
 import os
 from typing import List
 
+import json
 import torch
 
 import base_spn as SPN
 from constants import *
 from utils import mkdir_p
 from attacks.fgsm import attack
-from utils import pretty_print_dictionary
+from utils import pretty_print_dictionary, dictionary_to_file
 
 ############################################################################
 
@@ -159,8 +160,11 @@ def test_standard_spn_discrete(specific_datasets=None):
 
 				dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
 			dataset_results[num_distributions] = dataset_distribution_results
+
 		results[dataset_name] = dataset_results
-		pretty_print_dictionary(results)
+		dictionary_to_file(dataset_name, dataset_results, is_adv=True)
+		pretty_print_dictionary(dataset_results)
+	pretty_print_dictionary(results)
 
 
 if __name__ == '__main__':

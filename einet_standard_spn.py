@@ -1,46 +1,13 @@
 import os
 import torch
-import base_spn as SPN
-from EinsumNetwork import EinsumNetwork
-from utils import mkdir_p
+import einet_base_spn as SPN
+from EinsumNetwork.ExponentialFamilyArray import NormalArray, CategoricalArray
+
+from utils import mkdir_p, pretty_print_dictionary, dictionary_to_file
+from constants import *
 
 ############################################################################
 
-MNIST = "mnist"
-FASHION_MNIST = "fashion_mnist"
-BINARY_MNIST = "binary_mnist"
-
-CONTINUOUS_DATASETS = [MNIST]
-DISCRETE_DATASETS = [BINARY_MNIST, FASHION_MNIST]
-
-POON_DOMINGOS = "poon_domingos"
-BINARY_TREES = "binary_trees"
-
-STRUCTURES = [POON_DOMINGOS, BINARY_TREES]
-
-STRUCTURE_DIRECTORY = "checkpoints/structure"
-MODEL_DIRECTORY = "checkpoints/models"
-
-SAMPLES_DIRECTORY = "samples"
-CONDITIONAL_SAMPLES_DIRECTORY = "conditional_samples"
-
-NUM_CLASSES = 1
-MNIST_HEIGHT = 28
-MNIST_WIDTH = 28
-MAX_NUM_EPOCHS = 10
-
-
-TRAIN_BATCH_SIZE = 100
-EVAL_BATCH_SIZE = 100
-PD_NUM_PIECES = [4]
-
-DEFAULT_DEPTH = 3
-DEFAULT_NUM_REPETITIONS = 10
-DEFAULT_ONLINE_EM_STEPSIZE = 0.05
-DEFAULT_ONLINE_EM_FREQUENCY = 1
-
-
-NUM_INPUT_DISTRIBUTIONS_LIST = [20, 30, 40, 50]
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -54,7 +21,6 @@ def evaluation_message(message):
 
 
 def test_standard_spn_continuous():
-
 	for dataset_name in CONTINUOUS_DATASETS:
 
 		print_message = dataset_name
@@ -65,7 +31,7 @@ def test_standard_spn_continuous():
 
 		if dataset_name == MNIST:
 
-			exponential_family = EinsumNetwork.NormalArray
+			exponential_family = NormalArray
 			exponential_family_args = SPN.generate_exponential_family_args(exponential_family, dataset_name)
 
 			for structure in STRUCTURES:
@@ -87,7 +53,7 @@ def test_standard_spn_continuous():
 					graph = SPN.load_structure(structure, dataset_name, structure_args)
 
 				for num_distributions in NUM_INPUT_DISTRIBUTIONS_LIST:
-					print_message += (" " + "number of distributions {}". format(num_distributions))
+					print_message += (" " + "number of distributions {}".format(num_distributions))
 					evaluation_message(print_message)
 
 					einet_args = dict()
@@ -108,7 +74,8 @@ def test_standard_spn_continuous():
 					print_message += (" " + "training einet")
 					evaluation_message(print_message)
 
-					trained_einet = SPN.train_clean_einet(structure, dataset_name, einet, train_x, train_labels, valid_x,
+					trained_einet = SPN.train_clean_einet(structure, dataset_name, einet, train_x, train_labels,
+														  valid_x,
 														  valid_labels, test_x, test_labels, einet_args,
 														  batch_size=TRAIN_BATCH_SIZE)
 
@@ -129,5 +96,121 @@ def test_standard_spn_continuous():
 					SPN.generate_conditional_samples(einet, structure, dataset_name, einet_args, test_x)
 
 
+def test_standard_spn_discrete(specific_datasets=None):
+	if specific_datasets is None:
+		specific_datasets = DISCRETE_DATASETS
+	else:
+		specific_datasets = [specific_datasets] if type(specific_datasets) is not list else specific_datasets
+
+	results = dict()
+	for dataset_name in specific_datasets:
+		evaluation_message("Dataset : {}".format(dataset_name))
+
+		dataset_results = dict()
+
+		train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
+
+		exponential_family, exponential_family_args, structures = None, None, None
+		if dataset_name in DISCRETE_DATASETS:
+			structures = [BINARY_TREES]
+			exponential_family = CategoricalArray
+			exponential_family_args = SPN.generate_exponential_family_args(exponential_family, dataset_name)
+		elif dataset_name in CONTINUOUS_DATASETS:
+			structures = STRUCTURES
+			exponential_family = NormalArray
+			exponential_family_args = SPN.generate_exponential_family_args(exponential_family, dataset_name)
+
+		for structure in structures:
+
+			evaluation_message("Using the structure {}".format(structure))
+
+			graph = None
+			if structure == POON_DOMINGOS:
+				structure_args = dict()
+				structure_args[HEIGHT] = MNIST_HEIGHT
+				structure_args[WIDTH] = MNIST_WIDTH
+				structure_args[PD_NUM_PIECES] = PD_NUM_PIECES
+				graph = SPN.load_structure(structure, dataset_name, structure_args)
+			else:
+				structure_args = dict()
+				structure_args[NUM_VAR] = train_x.shape[1]
+				structure_args[DEPTH] = DEFAULT_DEPTH
+				structure_args[NUM_REPETITIONS] = DEFAULT_NUM_REPETITIONS
+				graph = SPN.load_structure(structure, dataset_name, structure_args)
+
+			for num_distributions in NUM_INPUT_DISTRIBUTIONS_LIST:
+
+				dataset_distribution_results = dict()
+
+				evaluation_message("Number of distributions {}".format(num_distributions))
+
+				einet_args = dict()
+				einet_args[NUM_VAR] = train_x.shape[1]
+				einet_args[NUM_SUMS] = num_distributions
+				einet_args[NUM_INPUT_DISTRIBUTIONS] = num_distributions
+				einet_args[EXPONENTIAL_FAMILY] = exponential_family
+				einet_args[EXPONENTIAL_FAMILY_ARGS] = exponential_family_args
+				einet_args[ONLINE_EM_FREQUENCY] = DEFAULT_ONLINE_EM_FREQUENCY
+				einet_args[ONLINE_EM_STEPSIZE] = DEFAULT_ONLINE_EM_STEPSIZE
+				einet_args[NUM_REPETITIONS] = DEFAULT_NUM_REPETITIONS
+
+				evaluation_message("Loading Einet")
+
+				einet = SPN.load_einet(structure, dataset_name, einet_args)
+
+				evaluation_message("Training einet")
+
+				trained_einet = SPN.train_clean_einet(structure, dataset_name, einet, train_x, train_labels, valid_x,
+													   valid_labels, test_x, test_labels, einet_args,
+													   batch_size=TRAIN_BATCH_SIZE)
+
+				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, einet_args, batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
+				evaluation_message("Clean Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
+
+				dataset_distribution_results['Clean Mean LL'] = mean_ll
+				dataset_distribution_results['Clean Std LL'] = std_ll
+
+				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, einet_args, batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
+				evaluation_message("Adv Test - Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
+
+				dataset_distribution_results['Adv Mean LL'] = mean_ll
+				dataset_distribution_results['Adv Std LL'] = std_ll
+
+				if dataset_name == BINARY_MNIST:
+					evaluation_message("Generating samples")
+					SPN.generate_samples(trained_einet, dataset_name, einet_args)
+
+					evaluation_message("Generating conditional samples")
+					SPN.generate_conditional_samples(trained_einet, dataset_name, einet_args, test_x)
+
+				for evidence_percentage in EVIDENCE_PERCENTAGES:
+					dataset_distribution_evidence_results = dict()
+
+					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage, einet_args, test_x, test_labels,
+										   batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
+					evaluation_message(
+						"Clean Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage,
+																							mean_ll,
+																							std_ll))
+					dataset_distribution_evidence_results['Clean Mean LL'] = mean_ll
+					dataset_distribution_evidence_results['Clean Std LL'] = std_ll
+
+					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage, einet_args, test_x, test_labels,
+										   batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
+					evaluation_message(
+						"Adv Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll,
+																						  std_ll))
+					dataset_distribution_evidence_results['Adv Mean LL'] = mean_ll
+					dataset_distribution_evidence_results['Adv Std LL'] = std_ll
+
+					dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
+				dataset_results[num_distributions] = dataset_distribution_results
+
+		results[dataset_name] = dataset_results
+		dictionary_to_file(dataset_name, dataset_results, is_adv=False, is_einet=True)
+		pretty_print_dictionary(dataset_results)
+	pretty_print_dictionary(results)
+
+
 if __name__ == '__main__':
-	test_standard_spn_continuous()
+	test_standard_spn_discrete(DEBD_DATASETS)

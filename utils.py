@@ -2,6 +2,7 @@ import os
 import errno
 import torch
 import yaml
+import json
 import numpy as np
 from PIL import Image
 
@@ -12,6 +13,22 @@ from tqdm import tqdm
 from torch.utils.data import TensorDataset, DataLoader
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
+def dictionary_to_file(dataset_name, dictionary, is_adv=False, is_einet=False):
+	RESULTS_DIRECTORY = None
+	if dataset_name in DEBD_DATASETS:
+		DEBD_RESULTS_DIRECTORY = EINET_DEBD_RESULTS_DIRECTORY if is_einet else RATSPN_DEBD_RESULTS_DIRECTORY
+		RESULTS_DIRECTORY = DEBD_RESULTS_DIRECTORY + "/{}".format(BINARY_DEBD_HAMMING_THRESHOLD)
+	mkdir_p(RESULTS_DIRECTORY)
+
+	if is_adv:
+		results_file_name = os.path.join(RESULTS_DIRECTORY, dataset_name + '_adv' + '.txt')
+	else:
+		results_file_name = os.path.join(RESULTS_DIRECTORY, dataset_name + '.txt')
+
+	with open(results_file_name, 'w') as convert_file:
+		convert_file.write(json.dumps(dictionary))
 
 
 def pretty_print_dictionary(dictionary):

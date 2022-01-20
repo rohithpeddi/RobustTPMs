@@ -7,7 +7,7 @@ from utils import mkdir_p
 from attacks.fgsm import attack
 from constants import *
 from attacks.sparsefool import attack as sparsefool_attack
-from utils import pretty_print_dictionary
+from utils import pretty_print_dictionary, dictionary_to_file
 
 ############################################################################
 
@@ -182,9 +182,11 @@ def test_standard_spn_discrete(specific_datasets=None):
 				dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
 			dataset_results[num_distributions] = dataset_distribution_results
 		results[dataset_name] = dataset_results
-		pretty_print_dictionary(results)
+		dictionary_to_file(dataset_name, dataset_results, is_adv=False)
+		pretty_print_dictionary(dataset_results)
+	pretty_print_dictionary(results)
 
 
 if __name__ == '__main__':
-	# test_standard_spn_discrete([BINARY_MNIST])
-	test_standard_spn_discrete(['plants'])
+	test_standard_spn_discrete(DEBD_DATASETS)
+	# test_standard_spn_discrete(['plants'])

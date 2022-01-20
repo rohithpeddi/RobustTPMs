@@ -9,6 +9,7 @@ data/
 conditional_samples/
 samples/
 checkpoints/
+results/
 .idea/
 
 # Distribution / packaging

@@ -17,6 +17,8 @@ from deeprob.torch.callbacks import EarlyStopping
 from deeprob.torch.metrics import RunningAverageMetric
 from deeprob.flows.models.base import NormalizingFlow
 
+from constants import *
+
 
 def train_model(
         model: ProbabilisticModel,
@@ -79,7 +81,7 @@ def train_model(
     )
 
     # Instantiate the early stopping callback
-    early_stopping = EarlyStopping(model, patience=patience, filepath=checkpoint)
+    early_stopping = EarlyStopping(model, patience=patience, filepath=checkpoint, delta=EARLY_STOPPING_DELTA)
 
     # Train the model
     if setting == 'generative':
