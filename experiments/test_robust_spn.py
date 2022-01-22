@@ -1,15 +1,17 @@
 import os
+from typing import List
 
+import json
 import torch
 
 import base_spn as SPN
+from constants import *
 from utils import mkdir_p
 from attacks.fgsm import attack
-from constants import *
-from attacks.sparsefool import attack as sparsefool_attack
 from utils import pretty_print_dictionary, dictionary_to_file
 
 ############################################################################
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -19,11 +21,11 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def evaluation_message(message):
 	print("-----------------------------------------------------------------------------")
-	print("#  " + message)
+	print("#" + message)
 	print("-----------------------------------------------------------------------------")
 
 
-def test_standard_spn_continuous():
+def test_adv_spn_continuous():
 	for dataset_name in CONTINUOUS_DATASETS:
 
 		print_message = dataset_name
@@ -34,74 +36,50 @@ def test_standard_spn_continuous():
 
 		if dataset_name == MNIST:
 
-			for num_distributions in NUM_INPUT_DISTRIBUTIONS_LIST:
-				print_message += (" " + "number of distributions {}".format(num_distributions))
-				evaluation_message(print_message)
+			attack_type = "sparsefool"
+			if attack_type == "sparsefool":
+				EPSILON_LIST = [0]
 
-				ratspn_args = dict()
-				ratspn_args[N_FEATURES] = MNIST_HEIGHT * MNIST_WIDTH
-				ratspn_args[OUT_CLASSES] = DEFAULT_GENERATIVE_NUM_CLASSES
-				ratspn_args[DEPTH] = DEFAULT_DEPTH
-				ratspn_args[NUM_SUMS] = num_distributions
-				ratspn_args[NUM_INPUT_DISTRIBUTIONS] = num_distributions
-				ratspn_args[NUM_REPETITIONS] = DEFAULT_NUM_REPETITIONS
+			for epsilon in EPSILON_LIST:
 
-				print_message += (" " + "loading ratspn")
-				evaluation_message(print_message)
+				for num_distributions in NUM_INPUT_DISTRIBUTIONS_LIST:
+					print_message += (" " + "number of distributions {}".format(num_distributions))
+					evaluation_message(print_message)
 
-				ratspn = SPN.load_ratspn(dataset_name, ratspn_args)
+					ratspn_args = dict()
+					ratspn_args[N_FEATURES] = MNIST_HEIGHT * MNIST_WIDTH
+					ratspn_args[OUT_CLASSES] = DEFAULT_GENERATIVE_NUM_CLASSES
+					ratspn_args[DEPTH] = DEFAULT_DEPTH
+					ratspn_args[NUM_SUMS] = num_distributions
+					ratspn_args[NUM_INPUT_DISTRIBUTIONS] = num_distributions
+					ratspn_args[NUM_REPETITIONS] = DEFAULT_NUM_REPETITIONS
 
-				print_message += (" " + "training einet")
-				evaluation_message(print_message)
+					print_message += (" " + "loading ratspn")
+					evaluation_message(print_message)
 
-				trained_ratspn = SPN.train_clean_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x,
-														valid_labels, test_x, test_labels,
-														ratspn_args, batch_size=TRAIN_BATCH_SIZE)
+					ratspn = SPN.load_ratspn(dataset_name, ratspn_args)
 
-				mean_ll, std_ll = SPN.test_clean_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
-				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
+					print_message += (" " + "training einet")
+					evaluation_message(print_message)
 
-				print_message += (" " + "generating samples")
-				evaluation_message(print_message)
+					trained_ratspn = SPN.train_adv_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x,
+														  valid_labels, test_x, test_labels,
+														  ratspn_args, batch_size=TRAIN_BATCH_SIZE, epsilon=epsilon)
 
-				SPN.generate_samples(trained_ratspn, dataset_name, ratspn_args)
+					mean_ll, std_ll = SPN.test_clean_spn(trained_ratspn, test_x, test_labels,
+														 batch_size=EVAL_BATCH_SIZE)
+					print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
 
-				SPN.generate_conditional_samples(trained_ratspn, dataset_name, ratspn_args, test_x)
+					print_message += (" " + "generating samples")
+					evaluation_message(print_message)
 
+					SPN.generate_adv_samples(trained_ratspn, dataset_name, ratspn_args, epsilon=epsilon)
+					SPN.generate_conditional_adv_samples(trained_ratspn, dataset_name, ratspn_args, test_x,
+														 epsilon=epsilon)
 
-def test_standard_spn_adv_test_data():
-	for dataset_name in CONTINUOUS_DATASETS:
-
-		print_message = dataset_name
-		evaluation_message(print_message)
-
-		# Load data as tensors
-		train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
-
-		if dataset_name == MNIST:
-
-			# test_x, test_labels = attack.generate_adv_dataset(test_x, test_labels, dataset_name)
-			test_x, test_labels = sparsefool_attack.generate_adv_dataset(dataset_name, test_x, test_labels)
-
-			for num_distributions in NUM_INPUT_DISTRIBUTIONS_LIST:
-				print_message += (" " + "number of distributions {}".format(num_distributions))
-				evaluation_message(print_message)
-
-				ratspn_args = dict()
-				ratspn_args[N_FEATURES] = MNIST_HEIGHT * MNIST_WIDTH
-				ratspn_args[OUT_CLASSES] = DEFAULT_GENERATIVE_NUM_CLASSES
-				ratspn_args[DEPTH] = DEFAULT_DEPTH
-				ratspn_args[NUM_SUMS] = num_distributions
-				ratspn_args[NUM_INPUT_DISTRIBUTIONS] = num_distributions
-				ratspn_args[NUM_REPETITIONS] = DEFAULT_NUM_REPETITIONS
-
-				print_message += (" " + "loading pretrained ratspn")
-				evaluation_message(print_message)
-
-				trained_ratspn = SPN.load_pretrained_ratspn(dataset_name, ratspn_args)
-
-				mean_ll, std_ll = SPN.test_clean_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
-				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
+					mean_ll, std_ll = SPN.test_adv_spn(dataset_name, trained_ratspn, test_x, test_labels,
+													   batch_size=EVAL_BATCH_SIZE, epsilon=epsilon)
+					print("Adv Test - Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
 
 
 def test_standard_spn_discrete(specific_datasets=None):
@@ -138,8 +116,9 @@ def test_standard_spn_discrete(specific_datasets=None):
 
 			evaluation_message("Training ratspn")
 
-			trained_ratspn = SPN.train_clean_ratspn(dataset_name, ratspn, train_x, valid_x,
-													test_x, ratspn_args, batch_size=TRAIN_BATCH_SIZE)
+			trained_ratspn = SPN.train_adv_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x, valid_labels,
+												  test_x, test_labels, ratspn_args, batch_size=TRAIN_BATCH_SIZE,
+												  epsilon=0)
 
 			mean_ll, std_ll = SPN.test_clean_spn(dataset_name, trained_ratspn, test_x, batch_size=EVAL_BATCH_SIZE)
 			evaluation_message("Clean Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
@@ -181,8 +160,9 @@ def test_standard_spn_discrete(specific_datasets=None):
 
 				dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
 			dataset_results[num_distributions] = dataset_distribution_results
+
 		results[dataset_name] = dataset_results
-		dictionary_to_file(dataset_name, dataset_results, is_adv=False)
+		dictionary_to_file(dataset_name, dataset_results, 1, is_adv=True)
 		pretty_print_dictionary(dataset_results)
 	pretty_print_dictionary(results)
 

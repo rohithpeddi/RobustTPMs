@@ -6,11 +6,13 @@ __pycache__/
 # C extensions
 *.so
 data/
-conditional_samples/
-samples/
+run_0/conditional_samples/
+run_0/samples/
 checkpoints/
-results/
+run_0/results/
 .idea/
+
+
 
 # Distribution / packaging
 .Python
@@ -133,3 +135,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+/run*/

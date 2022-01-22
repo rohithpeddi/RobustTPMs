@@ -16,87 +16,13 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def evaluation_message(message):
 	print("-----------------------------------------------------------------------------")
+	print("-----------------------------------------------------------------------------")
 	print("#" + message)
 	print("-----------------------------------------------------------------------------")
 
 
-def test_standard_spn_continuous():
-	for dataset_name in CONTINUOUS_DATASETS:
-
-		print_message = dataset_name
-		evaluation_message(print_message)
-
-		# Load data as tensors
-		train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
-
-		if dataset_name == MNIST:
-
-			exponential_family = NormalArray
-			exponential_family_args = SPN.generate_exponential_family_args(exponential_family, dataset_name)
-
-			for structure in STRUCTURES:
-				print_message += (" " + structure)
-				evaluation_message(print_message)
-
-				graph = None
-				if structure == POON_DOMINGOS:
-					structure_args = dict()
-					structure_args['height'] = MNIST_HEIGHT
-					structure_args['width'] = MNIST_WIDTH
-					structure_args['pd_num_pieces'] = PD_NUM_PIECES
-					graph = SPN.load_structure(structure, dataset_name, structure_args)
-				else:
-					structure_args = dict()
-					structure_args['num_var'] = train_x.shape[1]
-					structure_args['depth'] = DEFAULT_DEPTH
-					structure_args['num_repetitions'] = DEFAULT_NUM_REPETITIONS
-					graph = SPN.load_structure(structure, dataset_name, structure_args)
-
-				for num_distributions in NUM_INPUT_DISTRIBUTIONS_LIST:
-					print_message += (" " + "number of distributions {}".format(num_distributions))
-					evaluation_message(print_message)
-
-					einet_args = dict()
-					einet_args['num_var'] = train_x.shape[1]
-					einet_args['num_sums'] = num_distributions
-					einet_args['num_input_distributions'] = num_distributions
-					einet_args['exponential_family'] = exponential_family
-					einet_args['exponential_family_args'] = exponential_family_args
-					einet_args['online_em_frequency'] = DEFAULT_ONLINE_EM_FREQUENCY
-					einet_args['online_em_stepsize'] = DEFAULT_ONLINE_EM_STEPSIZE
-					einet_args['num_repetitions'] = DEFAULT_NUM_REPETITIONS
-
-					print_message += (" " + "loading einet")
-					evaluation_message(print_message)
-
-					einet = SPN.load_einet(structure, dataset_name, einet_args)
-
-					print_message += (" " + "training einet")
-					evaluation_message(print_message)
-
-					trained_einet = SPN.train_clean_einet(structure, dataset_name, einet, train_x, train_labels,
-														  valid_x,
-														  valid_labels, test_x, test_labels, einet_args,
-														  batch_size=TRAIN_BATCH_SIZE)
-
-					print_message += (" " + "saving trained einet")
-					evaluation_message(print_message)
-
-					mkdir_p(MODEL_DIRECTORY)
-					file_name = os.path.join(MODEL_DIRECTORY, "_".join(
-						[structure, dataset_name, str(num_distributions), str(num_distributions),
-						 str(DEFAULT_NUM_REPETITIONS)]) + ".mdl")
-					torch.save(trained_einet, file_name)
-
-					print_message += (" " + "generating samples")
-					evaluation_message(print_message)
-
-					SPN.generate_samples(trained_einet, structure, dataset_name, einet_args)
-
-					SPN.generate_conditional_samples(einet, structure, dataset_name, einet_args, test_x)
-
-
-def test_standard_spn_discrete(specific_datasets=None, is_adv=False):
+def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, train_attack_type=None,
+							   test_attack_type=None):
 	if specific_datasets is None:
 		specific_datasets = DISCRETE_DATASETS
 	else:
@@ -105,7 +31,6 @@ def test_standard_spn_discrete(specific_datasets=None, is_adv=False):
 	results = dict()
 	for dataset_name in specific_datasets:
 		evaluation_message("Dataset : {}".format(dataset_name))
-
 		dataset_results = dict()
 
 		train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
@@ -130,13 +55,13 @@ def test_standard_spn_discrete(specific_datasets=None, is_adv=False):
 				structure_args[HEIGHT] = MNIST_HEIGHT
 				structure_args[WIDTH] = MNIST_WIDTH
 				structure_args[PD_NUM_PIECES] = PD_NUM_PIECES
-				graph = SPN.load_structure(structure, dataset_name, structure_args)
+				graph = SPN.load_structure(run_id, structure, dataset_name, structure_args)
 			else:
 				structure_args = dict()
 				structure_args[NUM_VAR] = train_x.shape[1]
 				structure_args[DEPTH] = DEFAULT_DEPTH
 				structure_args[NUM_REPETITIONS] = DEFAULT_NUM_REPETITIONS
-				graph = SPN.load_structure(structure, dataset_name, structure_args)
+				graph = SPN.load_structure(run_id, structure, dataset_name, structure_args)
 
 			for num_distributions in NUM_INPUT_DISTRIBUTIONS_LIST:
 
@@ -156,71 +81,111 @@ def test_standard_spn_discrete(specific_datasets=None, is_adv=False):
 
 				evaluation_message("Loading Einet")
 
-				einet = SPN.load_einet(structure, dataset_name, einet_args)
+				einet = SPN.load_einet(run_id, structure, dataset_name, einet_args)
 
 				trained_einet = None
 				if is_adv:
-					evaluation_message("Training adversarial einet")
-					trained_einet = SPN.train_einet(structure, dataset_name, einet, train_x, train_labels, valid_x,
-													valid_labels, test_x, test_labels, einet_args,
+					evaluation_message("Training adversarial einet with attack type {}".format(train_attack_type))
+					trained_einet = SPN.train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x,
+													einet_args, train_attack_type,
 													batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=True)
+
 				else:
 					evaluation_message("Training clean einet")
-					trained_einet = SPN.train_einet(structure, dataset_name, einet, train_x, train_labels, valid_x,
-													valid_labels, test_x, test_labels, einet_args,
-													batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False)
+					trained_einet = SPN.train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x,
+													einet_args, CLEAN, batch_size=DEFAULT_TRAIN_BATCH_SIZE,
+													is_adv=False)
 
-				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, einet_args,
-												 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
+				# 1. Original Test Set
+				mean_ll, std_ll, text_x = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, None,
+														 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
 				evaluation_message("Clean Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
 
-				dataset_distribution_results['Clean Mean LL'] = mean_ll
-				dataset_distribution_results['Clean Std LL'] = std_ll
+				dataset_distribution_results['Original Mean LL'] = mean_ll
+				dataset_distribution_results['Original Std LL'] = std_ll
 
-				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, einet_args,
-												 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
-				evaluation_message("Adv Test - Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
+				if is_adv:
+					clean_einet = SPN.load_einet(run_id, structure, dataset_name, einet_args)
+					evaluation_message("Training clean einet")
+					trained_clean_einet = SPN.train_einet(run_id, structure, dataset_name, clean_einet, train_x,
+														  valid_x, test_x,
+														  einet_args, CLEAN, batch_size=DEFAULT_TRAIN_BATCH_SIZE,
+														  is_adv=False)
+				else:
+					trained_clean_einet = trained_einet
 
-				dataset_distribution_results['Adv Mean LL'] = mean_ll
-				dataset_distribution_results['Adv Std LL'] = std_ll
+				# 2. Test set modified using LS on model M
+				mean_ll, std_ll, adv_test_x_ls = SPN.test_einet(dataset_name, trained_clean_einet, test_x, test_labels,
+																LOCAL_SEARCH, batch_size=1, is_adv=True)
+				evaluation_message(
+					"Attack type : {}, Adv Test - Mean LL : {}, Std LL : {}".format(LOCAL_SEARCH, mean_ll, std_ll))
 
-				if dataset_name == BINARY_MNIST:
-					evaluation_message("Generating samples")
-					SPN.generate_samples(trained_einet, dataset_name, einet_args)
+				dataset_distribution_results["Local Search Mean LL"] = mean_ll
+				dataset_distribution_results["Local Search Std LL"] = std_ll
 
-					evaluation_message("Generating conditional samples")
-					SPN.generate_conditional_samples(trained_einet, dataset_name, einet_args, test_x)
+				# 3. Test set modified with neural network
+				mean_ll, std_ll, adv_test_x_nn = SPN.test_einet(dataset_name, trained_clean_einet, test_x, test_labels,
+																NEURAL_NET, batch_size=1, is_adv=True)
+				evaluation_message(
+					"Attack type : {}, Adv Test - Mean LL : {}, Std LL : {}".format(NEURAL_NET, mean_ll, std_ll))
+
+				dataset_distribution_results["Neural net Mean LL"] = mean_ll
+				dataset_distribution_results["Neural net Std LL"] = std_ll
 
 				for evidence_percentage in EVIDENCE_PERCENTAGES:
 					dataset_distribution_evidence_results = dict()
 
+					# 1. Original Test Set
 					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
-																 einet_args, test_x, test_labels,
-																 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
+																 test_x, batch_size=DEFAULT_EVAL_BATCH_SIZE)
 					evaluation_message(
 						"Clean Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage,
 																							mean_ll,
 																							std_ll))
+					# 2. Test set modified using LS on model M
 					dataset_distribution_evidence_results['Clean Mean LL'] = mean_ll
 					dataset_distribution_evidence_results['Clean Std LL'] = std_ll
 
 					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
-																 einet_args, test_x, test_labels,
-																 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
+																 adv_test_x_ls, batch_size=DEFAULT_EVAL_BATCH_SIZE)
 					evaluation_message(
-						"Adv Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll,
-																						  std_ll))
-					dataset_distribution_evidence_results['Adv Mean LL'] = mean_ll
-					dataset_distribution_evidence_results['Adv Std LL'] = std_ll
+						"Adv type:  {}, Evidence percentage : {}, Mean CLL : {}, Std CLL  : {}".format(LOCAL_SEARCH,
+																									   evidence_percentage,
+																									   mean_ll,
+																									   std_ll))
+					# 3. Test set modified with neural network
+					dataset_distribution_evidence_results["Local Search Mean CLL"] = mean_ll
+					dataset_distribution_evidence_results["Local Search Std CLL"] = std_ll
+
+					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
+																 adv_test_x_nn, batch_size=DEFAULT_EVAL_BATCH_SIZE)
+					evaluation_message(
+						"Adv type:  {}, Evidence percentage : {}, Mean CLL : {}, Std CLL  : {}".format(NEURAL_NET,
+																									   evidence_percentage,
+																									   mean_ll,
+																									   std_ll))
+					dataset_distribution_evidence_results["Neural Net Mean CLL"] = mean_ll
+					dataset_distribution_evidence_results["Neural Net Std CLL"] = std_ll
 
 					dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
 				dataset_results[num_distributions] = dataset_distribution_results
 
 		results[dataset_name] = dataset_results
-		dictionary_to_file(dataset_name, dataset_results, is_adv=is_adv, is_einet=True)
+		dictionary_to_file(dataset_name, dataset_results, run_id, is_adv=is_adv, is_einet=True)
 		pretty_print_dictionary(dataset_results)
 	pretty_print_dictionary(results)
 
 
 if __name__ == '__main__':
-	test_standard_spn_discrete(DEBD_DATASETS, is_adv=True)
+	for dataset_name in DEBD_DATASETS:
+		test_standard_spn_discrete(run_id=1, specific_datasets=[dataset_name], is_adv=True,
+								   train_attack_type=LOCAL_SEARCH)
+# for dataset_name in DEBD_DATASETS:
+# 	test_standard_spn_discrete(run_id=1, specific_datasets=[dataset_name], is_adv=False,
+# 							   train_attack_type=CLEAN, test_attack_type=[CLEAN, LOCAL_SEARCH, NEURAL_NET])
+# 	test_standard_spn_discrete(run_id=2, specific_datasets=[dataset_name], is_adv=False,
+# 							   train_attack_type=LOCAL_SEARCH, test_attack_type=[CLEAN, LOCAL_SEARCH, NEURAL_NET])
+# 	test_standard_spn_discrete(run_id=3, specific_datasets=[dataset_name], is_adv=False,
+# 							   train_attack_type=NEURAL_NET, test_attack_type=[CLEAN, LOCAL_SEARCH, NEURAL_NET])
+# 	test_standard_spn_discrete(run_id=4, specific_datasets=[dataset_name], is_adv=False,
+# 							   train_attack_type=LOCAL_RESTRICTED_SEARCH, test_attack_type=[CLEAN, LOCAL_SEARCH, NEURAL_NET])

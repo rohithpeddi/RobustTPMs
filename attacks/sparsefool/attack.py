@@ -59,12 +59,12 @@ def generate_adv_sample(dataset_name, inputs, net, target=None):
 		return 1, perturbed_inputs
 
 
-def generate_adv_dataset(dataset_name, inputs, target, combine=False):
+def generate_adv_dataset(einet, dataset_name, inputs, labels, combine=False, batched=True):
 	adv_inputs = inputs.detach().clone()
-	adv_target = target.detach().clone()
+	adv_target = labels.detach().clone()
 	original_N = inputs.shape[0]
 
-	dataset = TensorDataset(inputs, target)
+	dataset = TensorDataset(inputs, labels)
 	data_loader = DataLoader(dataset, batch_size=DEFAULT_SPARSEFOOL_ATTACK_BATCH_SIZE, shuffle=True)
 
 	net = load_neural_network(dataset_name, inputs)
@@ -80,9 +80,9 @@ def generate_adv_dataset(dataset_name, inputs, target, combine=False):
 			adv_inputs = torch.cat((adv_inputs, perturbed_inputs))
 			adv_target = torch.cat((adv_target, batch_target))
 	if combine:
-		return adv_inputs, adv_target
+		return adv_inputs
 	else:
-		return adv_inputs[original_N:, :], adv_target[original_N:, :]
+		return adv_inputs[original_N:, :]
 
 
 def load_neural_network(dataset_name, data=None):

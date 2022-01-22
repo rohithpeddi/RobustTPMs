@@ -215,8 +215,8 @@ def main():
 	ratspn.load_state_dict(torch.load(os.path.join(EXPERIMENTS_DIRECTORY, 'ratspn-mnist.pt')))
 	ratspn.to(device)
 
-	# test_rat_SPN_fgsm(ratspn, data_test_spn)
-	test_rat_SPN(ratspn, data_test_spn)
+	test_rat_SPN_fgsm(ratspn, data_test_spn)
+	# test_rat_SPN(ratspn, data_test_spn)
 
 
 if __name__ == '__main__':
