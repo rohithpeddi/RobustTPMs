@@ -37,12 +37,7 @@ def generate_adversarial_sample_batched(einet, inputs, k=10):
 	batch_size, num_dims = inputs.shape
 	iteration_inputs = inputs.clone().detach()
 
-	if BINARY_DEBD_HAMMING_THRESHOLD == 5:
-		k = min(int(0.4 * num_dims), 150)
-	elif BINARY_DEBD_HAMMING_THRESHOLD == 3:
-		k = min(int(0.8 * num_dims), 200)
-	else:
-		k = num_dims
+	k = num_dims
 
 	for iteration in range(BINARY_DEBD_HAMMING_THRESHOLD):
 		batched_perturbed_set = []
