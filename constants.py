@@ -39,6 +39,7 @@ SAMPLES_DIRECTORY = "samples"
 CONDITIONAL_SAMPLES_DIRECTORY = "conditional_samples"
 
 GENERATIVE_NUM_CLASSES = 1
+MNIST_NUM_CLASSES = 10
 MNIST_HEIGHT = 28
 MNIST_WIDTH = 28
 
@@ -68,7 +69,6 @@ DEFAULT_GENERATIVE_NUM_CLASSES = 1
 
 AUGMENTED_DATA_WEIGHT_PARAMETER = 0.5
 
-
 TRAIN_BATCH_SIZE = 50
 EVAL_BATCH_SIZE = 50
 
@@ -77,6 +77,7 @@ NUM_CLUSTERS = 10
 
 # NUM_INPUT_DISTRIBUTIONS_LIST = [10, 20, 30, 40, 50]
 NUM_INPUT_DISTRIBUTIONS_LIST = [10]
+CONTINUOUS_NUM_INPUT_DISTRIBUTIONS_LIST = [20, 30]
 EPSILON_LIST = [0.05, 0.1, 0.2, 0.3]
 EVIDENCE_PERCENTAGES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
@@ -102,12 +103,12 @@ RATSPN_DEBD_RESULTS_DIRECTORY = "results/ratspn/DEBD"
 RATSPN_BINARY_MNIST_RESULTS_DIRECTORY = "results/ratspn/binary_mnist"
 RATSPN_MNIST_RESULTS_DIRECTORY = "results/ratspn/mnist"
 
-# DEBD_DATASETS = [ 'baudio', 'jester', 'bnetflix', 'tretail', 'dna', 'kosarek', 'msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad', 'msnbc']
+DEBD_DATASETS = ['msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
-DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
-				 'jester', 'bnetflix', 'tretail', 'pumsb_star',
-				 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
-				 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
+# DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
+# 				 'jester', 'bnetflix', 'tretail', 'pumsb_star',
+# 				 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
+# 				 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
 CONTINUOUS_DATASETS = [MNIST]
 DISCRETE_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
@@ -141,9 +142,7 @@ DEFAULT_ONLINE_EM_FREQUENCY = 50
 
 DEFAULT_PD_NUM_PIECES = [4]
 
-
 EXPERIMENTS_DIRECTORY = "checkpoints/experiments"
-
 
 DEFAULT_DE_POPULATION_SIZE = 400
 DEFAULT_DE_MAX_ITERATIONS = 75

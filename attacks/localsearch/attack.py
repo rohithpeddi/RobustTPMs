@@ -17,13 +17,20 @@ def generate_perturbed_samples(inputs, k=10):
 	inputs = inputs.reshape((1, -1))
 	num_dims = inputs.shape[1]
 	perturbed_set = []
-	dim_idx = random.sample(range(0, num_dims), k)
-	for dimension in dim_idx:
-		perturbed_samples = inputs.clone().detach()
-		perturbed_samples[:, dimension] = 1 - perturbed_samples[:, dimension]
-		perturbed_set.append(perturbed_samples)
-	perturbed_set = torch.cat(perturbed_set)
-	return perturbed_set
+
+	if k == num_dims:
+		identity = torch.eye(num_dims, device=torch.device(device))
+		perturbed_set = inputs.repeat((num_dims, 1))
+		perturbed_set = identity + perturbed_set - 2 * torch.mul(identity, perturbed_set)
+		return perturbed_set
+	else:
+		dim_idx = random.sample(range(0, num_dims), k)
+		for dimension in dim_idx:
+			perturbed_samples = inputs.clone().detach()
+			perturbed_samples[:, dimension] = 1 - perturbed_samples[:, dimension]
+			perturbed_set.append(perturbed_samples)
+		perturbed_set = torch.cat(perturbed_set)
+		return perturbed_set
 
 
 def generate_adversarial_sample_batched(einet, inputs, k=10):
@@ -77,7 +84,7 @@ def generate_adv_dataset(einet, dataset_name, inputs, labels, combine=True, batc
 	adv_inputs = inputs.detach().clone()
 	original_N, num_dims = inputs.shape
 
-	batch_size = max(1, int(3000 / num_dims)) if batched else 1
+	batch_size = max(1, int(2000 / num_dims)) if batched else 1
 
 	dataset = TensorDataset(inputs)
 	data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
