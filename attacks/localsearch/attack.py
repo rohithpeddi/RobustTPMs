@@ -44,7 +44,16 @@ def generate_adversarial_sample_batched(einet, inputs, perturbations):
 		perturbed_set = torch.repeat_interleave(iteration_inputs, num_dims * (torch.ones(batch_size, device=torch.device(device)).int()), dim=0)
 		perturbed_set = identity + perturbed_set - 2 * torch.mul(identity, perturbed_set)
 
-		outputs = (einet(perturbed_set)).clone().detach()
+		if num_dims > 500:
+			outputs = []
+			perturbed_dataset = TensorDataset(perturbed_set)
+			perturbed_dataloader = DataLoader(perturbed_dataset, shuffle=False, batch_size=200)
+			for perturbed_inputs in perturbed_dataloader:
+				outputs.append(perturbed_inputs[0])
+			outputs = (torch.cat(outputs)).clone().detach()
+		else:
+			outputs = (einet(perturbed_set)).clone().detach()
+
 		arg_min_idx = []
 		for batch_idx in range(batch_size):
 			batch_input_min_idx = torch.argmin(outputs[batch_idx * num_dims:min((batch_idx + 1) * num_dims, outputs.shape[0])])
