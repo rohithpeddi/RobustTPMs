@@ -10,6 +10,7 @@ NUM_INPUT_DISTRIBUTIONS = 'num_input_distributions'
 NUM_SUMS = "num_sums"
 GENERATIVE = 'generative'
 CONDITIONAL = 'conditional'
+BATCH_SIZE = 'batch_size'
 
 HEIGHT = 'height'
 WIDTH = 'width'
@@ -23,6 +24,10 @@ EXPONENTIAL_FAMILY_ARGS = 'exponential_family_args'
 ONLINE_EM_FREQUENCY = 'online_em_frequency'
 ONLINE_EM_STEPSIZE = 'online_em_stepsize'
 
+CLEAN_EINET_MODEL_DIRECTORY = "checkpoints/einet/M"
+LS_EINET_MODEL_DIRECTORY = "checkpoints/einet/AMLS"
+RLS_EINET_MODEL_DIRECTORY = "checkpoints/einet/AMRLS"
+NN_EINET_MODEL_DIRECTORY = "checkpoints/einet/AMNN"
 EINET_MODEL_DIRECTORY = "checkpoints/einet"
 WEIGHTED_EINET_MODEL_DIRECTORY = "checkpoints/weighted_einet"
 
@@ -42,28 +47,15 @@ GENERATIVE_NUM_CLASSES = 1
 MNIST_NUM_CLASSES = 10
 MNIST_HEIGHT = 28
 MNIST_WIDTH = 28
-
-EINET_MAX_NUM_EPOCHS = 30
-MAX_NUM_EPOCHS = 400
-DEFAULT_EINET_MAX_TRAIN = 50
-
-EARLY_STOPPING_DELTA = 1e-2
-DEFAULT_PATIENCE = 30
-DEFAULT_EINET_PATIENCE = 4
-EARLY_STOPPING_FILE = 'checkpoint.pt'
+NUM_CLUSTERS = 10
 
 DEFAULT_LEAF_DROPOUT = 0.2
 DEFAULT_SUM_DROPOUT = 0.2
-DEFAULT_NUM_REPETITIONS = 50
-DEFAULT_LEARNING_RATE = 1e-2
-DEFAULT_TRAIN_BATCH_SIZE = 100
-DEFAULT_EVAL_BATCH_SIZE = 100
 
 BINARY_MNIST_THRESHOLD = 0.7
 BINARY_MNIST_HAMMING_THRESHOLD = 7
 
 BINARY_DEBD_THRESHOLD = 0.7
-BINARY_DEBD_HAMMING_THRESHOLD = 1
 
 DEFAULT_GENERATIVE_NUM_CLASSES = 1
 
@@ -72,21 +64,16 @@ AUGMENTED_DATA_WEIGHT_PARAMETER = 0.5
 TRAIN_BATCH_SIZE = 50
 EVAL_BATCH_SIZE = 50
 
-DEFAULT_DEPTH = 3
-NUM_CLUSTERS = 10
-
-# NUM_INPUT_DISTRIBUTIONS_LIST = [10, 20, 30, 40, 50]
-NUM_INPUT_DISTRIBUTIONS_LIST = [10]
 CONTINUOUS_NUM_INPUT_DISTRIBUTIONS_LIST = [20, 30]
 EPSILON_LIST = [0.05, 0.1, 0.2, 0.3]
 EVIDENCE_PERCENTAGES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 CHECKPOINT_DIRECTORY = "../../checkpoints"
-
+EINET_MAX_NUM_EPOCHS = 30
 MNIST_CHANNELS = 1
 MAX_ITER = 50
 LAMBDA = 3.
-
+DEFAULT_PATIENCE = 30
 MNIST_NET_DIRECTORY = "checkpoints/mnist"
 DEFAULT_SPARSEFOOL_ATTACK_BATCH_SIZE = 1
 
@@ -103,7 +90,10 @@ RATSPN_DEBD_RESULTS_DIRECTORY = "results/ratspn/DEBD"
 RATSPN_BINARY_MNIST_RESULTS_DIRECTORY = "results/ratspn/binary_mnist"
 RATSPN_MNIST_RESULTS_DIRECTORY = "results/ratspn/mnist"
 
-DEBD_DATASETS = ['msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
+DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
+					 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star',
+					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
+					 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
 # DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
 # 				 'jester', 'bnetflix', 'tretail', 'pumsb_star',
@@ -111,14 +101,15 @@ DEBD_DATASETS = ['msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'a
 # 				 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
 CONTINUOUS_DATASETS = [MNIST]
-DISCRETE_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
-					 'jester', 'bnetflix', 'tretail', 'pumsb_star',
+DISCRETE_DATASETS = ['plants', 'nltcs', 'msnbc', 'kdd', 'baudio',
+					 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star',
 					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
 					 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad', BINARY_MNIST]
 
 #################################################################################################
 
 TRAIN_NEURAL_NET_MAX_NUM_EPOCHS = 100
+MANUAL_SEED = 999
 
 DATA_DIRECTORY = "data/"
 MNIST_NET_PATH = "checkpoints/neural/mnist/"
@@ -128,21 +119,11 @@ BINARY_MNIST_NET_FILE = "binary_mnist_cnn.pt"
 BINARY_MNIST_NET_PATH = "checkpoints/neural/binary_mnist"
 DEBD_NET_PATH = "checkpoints/neural/DEBD"
 
-MANUAL_SEED = 999
-
 ##############################################################################################
 
 
-STRUCTURES = [POON_DOMINGOS, BINARY_TREES]
-
-STRUCTURE_DIRECTORY = "checkpoints/structure"
-
-DEFAULT_ONLINE_EM_STEPSIZE = 0.05
-DEFAULT_ONLINE_EM_FREQUENCY = 50
-
-DEFAULT_PD_NUM_PIECES = [4]
-
 EXPERIMENTS_DIRECTORY = "checkpoints/experiments"
+STRUCTURE_DIRECTORY = "../structure"
 
 DEFAULT_DE_POPULATION_SIZE = 400
 DEFAULT_DE_MAX_ITERATIONS = 75
@@ -153,7 +134,39 @@ DEFAULT_DE_MAX_ITERATIONS = 75
 
 CLEAN = "clean"
 LOCAL_SEARCH = "local_search"
-LOCAL_RESTRICTED_SEARCH = "local_restricted_search"
+RESTRICTED_LOCAL_SEARCH = "local_restricted_search"
 NEURAL_NET = "neural_net"
 EVOLUTIONARY = "evolutionary"
 GRADIENT = "gradient"
+
+##############################################################################################
+BINARY_DEBD_HAMMING_THRESHOLD = 5
+
+STRUCTURES = [POON_DOMINGOS, BINARY_TREES]
+
+DEFAULT_PD_NUM_PIECES = [8]
+
+DEFAULT_ONLINE_EM_STEPSIZE = 0.05
+DEFAULT_ONLINE_EM_FREQUENCY = 50
+
+MAX_NUM_EPOCHS = 400
+
+EARLY_STOPPING_DELTA = 1e-3
+DEFAULT_EINET_PATIENCE = 1
+EARLY_STOPPING_FILE = 'checkpoint.pt'
+
+DEFAULT_NUM_REPETITIONS = 50
+DEFAULT_LEARNING_RATE = 1e-2
+DEFAULT_TRAIN_BATCH_SIZE = 100
+DEFAULT_EVAL_BATCH_SIZE = 100
+
+DEFAULT_DEPTH = 3
+
+# NUM_INPUT_DISTRIBUTIONS_LIST = [10, 20, 30, 40, 50]
+NUM_INPUT_DISTRIBUTIONS_LIST = [10]
+PERTURBATIONS = [1, 3, 5]
+
+NEURAL_NETWORK_ATTACK_MODEL_SUB_DIRECTORY = "AMNN"
+LOCAL_SEARCH_ATTACK_MODEL_SUB_DIRECTORY = "AMLS"
+LOCAL_RESTRICTED_SEARCH_ATTACK_MODEL_SUB_DIRECTORY = "AMRLS"
+CLEAN_MODEL_SUB_DIRECTORY = "M"

@@ -83,7 +83,8 @@ def load_dataset(dataset_name):
 
 
 def load_structure(run_id, structure, dataset_name, structure_args):
-	RUN_STRUCTURE_DIRECTORY = os.path.join("run_{}".format(run_id), STRUCTURE_DIRECTORY)
+	# RUN_STRUCTURE_DIRECTORY = os.path.join("run_{}".format(run_id), STRUCTURE_DIRECTORY)
+	RUN_STRUCTURE_DIRECTORY = os.path.join("", STRUCTURE_DIRECTORY)
 	mkdir_p(RUN_STRUCTURE_DIRECTORY)
 	graph = None
 	if structure == POON_DOMINGOS:
@@ -115,25 +116,25 @@ def load_structure(run_id, structure, dataset_name, structure_args):
 	return graph
 
 
-def load_einet(run_id, structure, dataset_name, einet_args):
-	RUN_STRUCTURE_DIRECTORY = os.path.join("run_{}".format(run_id), STRUCTURE_DIRECTORY)
-	mkdir_p(RUN_STRUCTURE_DIRECTORY)
-	args, graph = None, None
-	if structure == POON_DOMINGOS:
-		file_name = os.path.join(RUN_STRUCTURE_DIRECTORY, "{}_{}.pc".format(structure, dataset_name))
-		if os.path.exists(file_name):
-			graph = Graph.read_gpickle(file_name)
-		else:
-			AssertionError("Graph for the corresponding structure is not stored, generate graph first")
-
-	else:
-		# Structure - Binary Trees
-		file_name = os.path.join(RUN_STRUCTURE_DIRECTORY,
-								 "{}_{}_{}.pc".format(structure, dataset_name, einet_args[NUM_REPETITIONS]))
-		if os.path.exists(file_name):
-			graph = Graph.read_gpickle(file_name)
-		else:
-			AssertionError("Graph for the corresponding structure is not stored, generate graph first")
+def load_einet(run_id, structure, dataset_name, einet_args, graph):
+	# RUN_STRUCTURE_DIRECTORY = os.path.join("run_{}".format(run_id), STRUCTURE_DIRECTORY)
+	# mkdir_p(RUN_STRUCTURE_DIRECTORY)
+	# args, graph = None, None
+	# if structure == POON_DOMINGOS:
+	# 	file_name = os.path.join(RUN_STRUCTURE_DIRECTORY, "{}_{}.pc".format(structure, dataset_name))
+	# 	if os.path.exists(file_name):
+	# 		graph = Graph.read_gpickle(file_name)
+	# 	else:
+	# 		AssertionError("Graph for the corresponding structure is not stored, generate graph first")
+	#
+	# else:
+	# 	# Structure - Binary Trees
+	# 	file_name = os.path.join(RUN_STRUCTURE_DIRECTORY,
+	# 							 "{}_{}_{}.pc".format(structure, dataset_name, einet_args[NUM_REPETITIONS]))
+	# 	if os.path.exists(file_name):
+	# 		graph = Graph.read_gpickle(file_name)
+	# 	else:
+	# 		AssertionError("Graph for the corresponding structure is not stored, generate graph first")
 
 	args = EinsumNetwork.Args(
 		num_var=einet_args[NUM_VAR],
@@ -150,6 +151,45 @@ def load_einet(run_id, structure, dataset_name, einet_args):
 	einet.initialize()
 	einet.to(device)
 	return einet
+
+
+def load_pretrained_einet(run_id, structure, dataset_name, einet_args, attack_type=None, perturbations=None):
+	einet = None
+
+	if attack_type is None:
+		RUN_MODEL_DIRECTORY = os.path.join("run_{}".format(run_id), CLEAN_EINET_MODEL_DIRECTORY)
+
+		mkdir_p(RUN_MODEL_DIRECTORY)
+
+		file_name = os.path.join(RUN_MODEL_DIRECTORY,
+								 "{}_{}_{}_{}_{}.mdl".format(structure, dataset_name, einet_args[NUM_SUMS],
+															 einet_args[NUM_INPUT_DISTRIBUTIONS],
+															 einet_args[NUM_REPETITIONS]))
+
+	else:
+		if attack_type == NEURAL_NET:
+			RUN_MODEL_DIRECTORY = os.path.join("run_{}".format(run_id),
+											   NN_EINET_MODEL_DIRECTORY + "/{}".format(perturbations))
+		elif attack_type == LOCAL_SEARCH:
+			RUN_MODEL_DIRECTORY = os.path.join("run_{}".format(run_id),
+											   LS_EINET_MODEL_DIRECTORY + "/{}".format(perturbations))
+		elif attack_type == RESTRICTED_LOCAL_SEARCH:
+			RUN_MODEL_DIRECTORY = os.path.join("run_{}".format(run_id),
+											   RLS_EINET_MODEL_DIRECTORY + "/{}".format(perturbations))
+
+		mkdir_p(RUN_MODEL_DIRECTORY)
+
+		file_name = os.path.join(RUN_MODEL_DIRECTORY,
+								 "{}_{}_{}_{}_{}_adv.mdl".format(structure, dataset_name, einet_args[NUM_SUMS],
+																 einet_args[NUM_INPUT_DISTRIBUTIONS],
+																 einet_args[NUM_REPETITIONS]))
+
+	if os.path.exists(file_name):
+		einet = torch.load(file_name).to(device)
+		return einet
+	else:
+		AssertionError("Einet for the corresponding structure is not stored, train first")
+		return None
 
 
 def epoch_einet_train(train_dataloader, einet, epoch, dataset_name, weight=1):
@@ -182,20 +222,32 @@ def evaluate_lls(einet, train_x, valid_x, test_x, epoch_count=0):
 	return train_ll / train_x.shape[0], valid_ll / valid_x.shape[0], test_ll / test_x.shape[0]
 
 
-def save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type=CLEAN):
+def save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type=CLEAN, perturbations=None):
 	RUN_MODEL_DIRECTORY = os.path.join("run_{}".format(run_id), EINET_MODEL_DIRECTORY)
-	RUN_ATTACK_DIRECTORY = os.path.join(RUN_MODEL_DIRECTORY, attack_type)
-	mkdir_p(RUN_ATTACK_DIRECTORY)
+
+	if attack_type in [NEURAL_NET, LOCAL_SEARCH, RESTRICTED_LOCAL_SEARCH]:
+		if attack_type == NEURAL_NET:
+			sub_directory_name = NEURAL_NETWORK_ATTACK_MODEL_SUB_DIRECTORY
+		elif attack_type == LOCAL_SEARCH:
+			sub_directory_name = LOCAL_SEARCH_ATTACK_MODEL_SUB_DIRECTORY
+		else:
+			sub_directory_name = LOCAL_RESTRICTED_SEARCH_ATTACK_MODEL_SUB_DIRECTORY
+		ATTACK_SUB_DIRECTORY = os.path.join(RUN_MODEL_DIRECTORY, sub_directory_name)
+		ATTACK_MODEL_DIRECTORY = os.path.join(ATTACK_SUB_DIRECTORY, "{}".format(perturbations))
+	else:
+		ATTACK_MODEL_DIRECTORY = os.path.join(RUN_MODEL_DIRECTORY, CLEAN_MODEL_SUB_DIRECTORY)
+
+	mkdir_p(ATTACK_MODEL_DIRECTORY)
 
 	file_name = None
 	if is_adv:
-		file_name = os.path.join(RUN_ATTACK_DIRECTORY,
+		file_name = os.path.join(ATTACK_MODEL_DIRECTORY,
 								 "{}_{}_{}_{}_{}_adv.mdl".format(structure, dataset_name,
 																 einet_args[NUM_SUMS],
 																 einet_args[NUM_INPUT_DISTRIBUTIONS],
-																 DEFAULT_NUM_REPETITIONS))
+																 einet_args[NUM_REPETITIONS]))
 	else:
-		file_name = os.path.join(RUN_ATTACK_DIRECTORY,
+		file_name = os.path.join(ATTACK_MODEL_DIRECTORY,
 								 "{}_{}_{}_{}_{}.mdl".format(structure, dataset_name, einet_args[NUM_SUMS],
 															 einet_args[NUM_INPUT_DISTRIBUTIONS],
 															 einet_args[NUM_REPETITIONS]))
@@ -204,9 +256,9 @@ def save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attac
 	return
 
 
-def train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x, einet_args,
+def train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x, einet_args, perturbations,
 				attack_type=CLEAN, batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False):
-	patience = 2 if is_adv else DEFAULT_EINET_PATIENCE
+	patience = 1 if is_adv else DEFAULT_EINET_PATIENCE
 
 	early_stopping = EarlyStopping(einet, patience=patience, filepath=EARLY_STOPPING_FILE,
 								   delta=EARLY_STOPPING_DELTA)
@@ -222,17 +274,19 @@ def train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x
 		if early_stopping.should_stop:
 			print("Early Stopping... {}".format(early_stopping))
 			break
-		if is_adv:
+		if (is_adv and attack_type != NEURAL_NET) or (
+				attack_type == NEURAL_NET and epoch_count == NUM_EPOCHS - 1):
 			print("Fetching adversarial data, training epoch {}".format(epoch_count))
-			train_dataset = fetch_adv_data(einet, dataset_name, train_x, None, attack_type, combine=True)
+			train_dataset = fetch_adv_data(einet, dataset_name, train_x, None, perturbations, attack_type,
+										   TRAIN_DATASET, combine=True)
 
-	save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type)
+	save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type, perturbations)
 
 	return einet
 
 
 def fetch_attack_method(attack_type):
-	if attack_type == LOCAL_RESTRICTED_SEARCH:
+	if attack_type == RESTRICTED_LOCAL_SEARCH:
 		return local_restricted_search_attack
 	elif attack_type == LOCAL_SEARCH:
 		return local_search_attack
@@ -240,10 +294,25 @@ def fetch_attack_method(attack_type):
 		return sparsefool_attack
 
 
-def fetch_adv_data(einet, dataset_name, inputs, labels, attack_type, combine=True):
+def fetch_adv_data(einet, dataset_name, inputs, labels, perturbations, attack_type, file_name=None, combine=True):
+	if attack_type == NEURAL_NET:
+		data_file_path = os.path.join(DATA_DEBD_DIRECTORY,
+									  "{}/augmented/sparsefool/{}/{}.pt".format(dataset_name, perturbations, file_name))
+		if os.path.exists(data_file_path):
+			adv_data = torch.load(data_file_path)
+			return adv_data
+
 	attack = fetch_attack_method(attack_type)
-	adv_data = attack.generate_adv_dataset(einet, dataset_name, inputs, labels, combine=combine, batched=True)
+	adv_data = attack.generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, combine=combine,
+										   batched=True)
 	adv_data = TensorDataset(adv_data)
+
+	if attack_type == NEURAL_NET:
+		data_file_directory = os.path.join(DATA_DEBD_DIRECTORY, "{}/augmented/sparsefool/{}".format(dataset_name, perturbations))
+		mkdir_p(data_file_directory)
+		data_file_path = os.path.join(data_file_directory, "{}.pt".format(file_name))
+		torch.save(adv_data, data_file_path)
+
 	return adv_data
 
 
@@ -253,11 +322,13 @@ def get_stats(likelihoods):
 	return mean_ll, stddev_ll
 
 
-def test_einet(dataset_name, einet, test_x, test_labels, attack_type=None, batch_size=1, is_adv=False):
-	einet.eval()
+def test_einet(dataset_name, trained_einet, data_einet, test_x, test_labels, perturbations, attack_type=None,
+			   batch_size=1, is_adv=False):
+	trained_einet.eval()
 	if is_adv:
-		test_x = fetch_adv_data(einet, dataset_name, test_x, test_labels, attack_type, combine=False).tensors[0]
-	test_lls = EinsumNetwork.fetch_likelihoods_for_data(einet, test_x, batch_size=batch_size)
+		test_x = fetch_adv_data(data_einet, dataset_name, test_x, test_labels, perturbations, attack_type, TEST_DATASET,
+								combine=False).tensors[0]
+	test_lls = EinsumNetwork.fetch_likelihoods_for_data(trained_einet, test_x, batch_size=batch_size)
 	mean_ll, stddev_ll = get_stats(test_lls)
 	return mean_ll, stddev_ll, test_x
 

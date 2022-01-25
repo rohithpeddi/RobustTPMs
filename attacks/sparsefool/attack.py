@@ -31,7 +31,7 @@ def sparsefool_attack(dataset_name, data, net, target=None):
 	return x_adv
 
 
-def generate_adv_sample(dataset_name, inputs, net, target=None):
+def generate_adv_sample(dataset_name, inputs, net, perturbations, target=None):
 	inputs = inputs.detach().clone()
 	if dataset_name == MNIST or dataset_name == BINARY_MNIST:
 		inputs = inputs.reshape((-1, MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH))
@@ -43,13 +43,13 @@ def generate_adv_sample(dataset_name, inputs, net, target=None):
 	if dataset_name == BINARY_MNIST:
 		perturbed_inputs = perturbed_inputs.reshape((-1, MNIST_HEIGHT * MNIST_WIDTH))
 		inputs = inputs.reshape((-1, MNIST_HEIGHT * MNIST_WIDTH))
-		if torch.sum(torch.abs(inputs - perturbed_inputs)) > BINARY_MNIST_HAMMING_THRESHOLD:
+		if torch.sum(torch.abs(inputs - perturbed_inputs)) > perturbations:
 			return 0, None
 		perturbed_inputs[perturbed_inputs < BINARY_MNIST_THRESHOLD] = 0
 		perturbed_inputs[perturbed_inputs > BINARY_MNIST_THRESHOLD] = 1
 		return 1, perturbed_inputs
 	elif dataset_name in DEBD_DATASETS:
-		if torch.sum(torch.abs(inputs - perturbed_inputs)) > BINARY_DEBD_HAMMING_THRESHOLD:
+		if torch.sum(torch.abs(inputs - perturbed_inputs)) > perturbations:
 			return 0, None
 		perturbed_inputs[perturbed_inputs < BINARY_DEBD_THRESHOLD] = 0
 		perturbed_inputs[perturbed_inputs > BINARY_DEBD_THRESHOLD] = 1
@@ -59,7 +59,7 @@ def generate_adv_sample(dataset_name, inputs, net, target=None):
 		return 1, perturbed_inputs
 
 
-def generate_adv_dataset(einet, dataset_name, inputs, labels, combine=False, batched=True):
+def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, combine=False, batched=True):
 	adv_inputs = inputs.detach().clone()
 	adv_target = labels.detach().clone()
 	original_N = inputs.shape[0]
@@ -75,7 +75,7 @@ def generate_adv_dataset(einet, dataset_name, inputs, labels, combine=False, bat
 	)
 
 	for batch_inputs, batch_target in data_loader:
-		flag, perturbed_inputs = generate_adv_sample(dataset_name, batch_inputs, net, batch_target)
+		flag, perturbed_inputs = generate_adv_sample(dataset_name, batch_inputs, net, perturbations, batch_target)
 		if flag == 1:
 			adv_inputs = torch.cat((adv_inputs, perturbed_inputs))
 			adv_target = torch.cat((adv_target, batch_target))

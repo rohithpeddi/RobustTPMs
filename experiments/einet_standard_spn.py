@@ -77,7 +77,7 @@ def test_standard_spn_continuous():
 					trained_einet = SPN.train_clean_einet(structure, dataset_name, einet, train_x, train_labels,
 														  valid_x,
 														  valid_labels, test_x, test_labels, einet_args,
-														  batch_size=TRAIN_BATCH_SIZE)
+														  batch_size=DEFAULT_TRAIN_BATCH_SIZE)
 
 					print_message += (" " + "saving trained einet")
 					evaluation_message(print_message)
@@ -162,22 +162,22 @@ def test_standard_spn_discrete(specific_datasets=None, is_adv=False):
 				if is_adv:
 					evaluation_message("Training adversarial einet")
 					trained_einet = SPN.train_einet(1, structure, dataset_name, einet, train_x, valid_x, test_x,
-													einet_args, LOCAL_RESTRICTED_SEARCH,
+													einet_args, RESTRICTED_LOCAL_SEARCH,
 													batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=True)
 				else:
 					evaluation_message("Training clean einet")
 					trained_einet = SPN.train_einet(1, structure, dataset_name, einet, train_x, valid_x, test_x,
-													einet_args, LOCAL_RESTRICTED_SEARCH,
+													einet_args, RESTRICTED_LOCAL_SEARCH,
 													batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False)
 
-				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, None, LOCAL_RESTRICTED_SEARCH,
+				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, None, RESTRICTED_LOCAL_SEARCH,
 												 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
 				evaluation_message("Clean Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
 
 				dataset_distribution_results['Clean Mean LL'] = mean_ll
 				dataset_distribution_results['Clean Std LL'] = std_ll
 
-				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, None, LOCAL_RESTRICTED_SEARCH,
+				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, None, RESTRICTED_LOCAL_SEARCH,
 												 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
 				evaluation_message("Adv Test - Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
 
