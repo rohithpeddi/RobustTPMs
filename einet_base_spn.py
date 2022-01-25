@@ -274,8 +274,8 @@ def train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x
 		if early_stopping.should_stop:
 			print("Early Stopping... {}".format(early_stopping))
 			break
-		if (is_adv and attack_type != NEURAL_NET) or (
-				attack_type == NEURAL_NET and epoch_count == NUM_EPOCHS - 1):
+		if (is_adv and attack_type != NEURAL_NET and epoch_count % 2 == 0) or (
+				attack_type == NEURAL_NET and epoch_count == 0):
 			print("Fetching adversarial data, training epoch {}".format(epoch_count))
 			train_dataset = fetch_adv_data(einet, dataset_name, train_x, None, perturbations, attack_type,
 										   TRAIN_DATASET, combine=True)
