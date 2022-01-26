@@ -122,7 +122,7 @@ DEBD_NET_PATH = "checkpoints/neural/DEBD"
 
 
 EXPERIMENTS_DIRECTORY = "checkpoints/experiments"
-STRUCTURE_DIRECTORY = "../structure"
+STRUCTURE_DIRECTORY = "structure"
 
 DEFAULT_DE_POPULATION_SIZE = 400
 DEFAULT_DE_MAX_ITERATIONS = 75
