@@ -67,7 +67,7 @@ def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, com
 	original_N, num_dims = inputs.shape
 
 	k = min(max(10, int(0.1 * num_dims)), 50)
-	batch_size = max(1, int(2000 / k)) if batched else 1
+	batch_size = max(1, int(1000 / k)) if batched else 1
 
 	dataset = TensorDataset(inputs)
 	data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)

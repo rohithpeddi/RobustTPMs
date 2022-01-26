@@ -90,15 +90,14 @@ RATSPN_DEBD_RESULTS_DIRECTORY = "results/ratspn/DEBD"
 RATSPN_BINARY_MNIST_RESULTS_DIRECTORY = "results/ratspn/binary_mnist"
 RATSPN_MNIST_RESULTS_DIRECTORY = "results/ratspn/mnist"
 
-DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
-					 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star',
-					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
-					 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
+# DEBD_DATASETS = ['tretail', 'pumsb_star',
+# 					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
+# 					 'cwebkb']
 
-# DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
-# 				 'jester', 'bnetflix', 'tretail', 'pumsb_star',
-# 				 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
-# 				 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
+DEBD_DATASETS = ['plants', 'accidents', 'nltcs', 'msnbc', 'kdd', 'baudio',
+				 'jester', 'bnetflix', 'tretail', 'pumsb_star',
+				 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
+				 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
 CONTINUOUS_DATASETS = [MNIST]
 DISCRETE_DATASETS = ['plants', 'nltcs', 'msnbc', 'kdd', 'baudio',
@@ -164,7 +163,7 @@ DEFAULT_DEPTH = 3
 
 # NUM_INPUT_DISTRIBUTIONS_LIST = [10, 20, 30, 40, 50]
 NUM_INPUT_DISTRIBUTIONS_LIST = [10]
-PERTURBATIONS = [5, 3, 1]
+PERTURBATIONS = [5, 3]
 
 NEURAL_NETWORK_ATTACK_MODEL_SUB_DIRECTORY = "AMNN"
 LOCAL_SEARCH_ATTACK_MODEL_SUB_DIRECTORY = "AMLS"
