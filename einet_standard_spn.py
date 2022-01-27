@@ -348,9 +348,9 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 				# 		mean_ll, std_ll))
 				# dataset_distribution_evidence_results['Neural Network - 5 Mean LL'] = mean_ll
 				# dataset_distribution_evidence_results['Neural Network - 5 Std LL'] = std_ll
-				#
-				# dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
-				# dataset_results[einet_args[NUM_INPUT_DISTRIBUTIONS]] = dataset_distribution_results
+
+				dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
+				dataset_results[einet_args[NUM_INPUT_DISTRIBUTIONS]] = dataset_distribution_results
 
 		results[dataset_name] = dataset_results
 		dictionary_to_file(dataset_name, dataset_results, run_id, train_attack_type, perturbations, is_adv=is_adv,
