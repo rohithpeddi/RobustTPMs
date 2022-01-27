@@ -6,10 +6,10 @@ __pycache__/
 # C extensions
 *.so
 data/
-run_0/conditional_samples/
-run_0/samples/
+dump/run_0/conditional_samples/
+dump/run_0/samples/
 checkpoints/
-run_0/results/
+dump/run_0/results/
 .idea/
 
 
@@ -117,6 +117,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+dump/
 
 # Spyder project settings
 .spyderproject

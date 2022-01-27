@@ -156,7 +156,7 @@ def load_einet(run_id, structure, dataset_name, einet_args, graph):
 def load_pretrained_einet(run_id, structure, dataset_name, einet_args, attack_type=None, perturbations=None):
 	einet = None
 
-	if attack_type is None:
+	if attack_type is None or attack_type == CLEAN:
 		RUN_MODEL_DIRECTORY = os.path.join("run_{}".format(run_id), CLEAN_EINET_MODEL_DIRECTORY)
 
 		mkdir_p(RUN_MODEL_DIRECTORY)

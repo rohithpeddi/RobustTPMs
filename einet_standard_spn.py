@@ -1,10 +1,10 @@
-import os
 import torch
+import torch
+
 import einet_base_spn as SPN
 from EinsumNetwork.ExponentialFamilyArray import NormalArray, CategoricalArray
-
-from utils import mkdir_p, pretty_print_dictionary, dictionary_to_file
 from constants import *
+from utils import pretty_print_dictionary, dictionary_to_file
 
 ############################################################################
 
@@ -38,16 +38,20 @@ def fetch_einet_args(dataset_name, num_var, exponential_family, exponential_fami
 		num_distributions = 10
 		batch_size = 50
 		online_em_frequency = 5
-	elif dataset_name in ['cwebkb', 'bbc', 'tmovie', 'cr52', 'dna']:
+	elif dataset_name in ['tmovie',  'dna']:
 		num_distributions = 20
 		batch_size = 50
 		online_em_frequency = 1
+	elif dataset_name in ['cwebkb', 'bbc', 'cr52']:
+		num_distributions = 10
+		batch_size = 50
+		online_em_frequency = 1
 	elif dataset_name in ['c20ng']:
-		num_distributions = 20
+		num_distributions = 10
 		batch_size = 50
 		online_em_frequency = 5
 	elif dataset_name in ['ad']:
-		num_distributions = 20
+		num_distributions = 10
 		batch_size = 50
 		online_em_frequency = 5
 
@@ -124,10 +128,12 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 			einet = SPN.load_einet(run_id, structure, dataset_name, einet_args, graph)
 			trained_adv_einet = trained_clean_einet
 			if is_adv:
-				trained_adv_einet = SPN.load_pretrained_einet(run_id, structure, dataset_name, einet_args, train_attack_type, perturbations)
+				trained_adv_einet = SPN.load_pretrained_einet(run_id, structure, dataset_name, einet_args,
+															  train_attack_type, perturbations)
 				if trained_adv_einet is None:
 					evaluation_message("Training adversarial einet with attack type {}".format(train_attack_type))
-					trained_adv_einet = SPN.train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x,
+					trained_adv_einet = SPN.train_einet(run_id, structure, dataset_name, einet, train_x, valid_x,
+														test_x,
 														einet_args, perturbations, train_attack_type,
 														batch_size=einet_args[BATCH_SIZE], is_adv=True)
 				else:
@@ -354,7 +360,9 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 
 
 if __name__ == '__main__':
+	# test_standard_spn_discrete(run_id=261, specific_datasets=DEBD_DATASETS, is_adv=False,
+	# 						   train_attack_type=CLEAN, perturbations=0)
 	for perturbation in PERTURBATIONS:
 		evaluation_message("Training for Perturbation : {}".format(perturbation))
-		test_standard_spn_discrete(run_id=8, specific_datasets=DEBD_DATASETS, is_adv=True,
-								   train_attack_type=LOCAL_SEARCH, perturbations=perturbation)
+		test_standard_spn_discrete(run_id=261, specific_datasets=DEBD_DATASETS, is_adv=True,
+								   train_attack_type=RESTRICTED_LOCAL_SEARCH, perturbations=perturbation)
