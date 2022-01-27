@@ -365,4 +365,4 @@ if __name__ == '__main__':
 	for perturbation in PERTURBATIONS:
 		evaluation_message("Training for Perturbation : {}".format(perturbation))
 		test_standard_spn_discrete(run_id=261, specific_datasets=DEBD_DATASETS, is_adv=True,
-								   train_attack_type=RESTRICTED_LOCAL_SEARCH, perturbations=perturbation)
+								   train_attack_type=LOCAL_SEARCH, perturbations=perturbation)
