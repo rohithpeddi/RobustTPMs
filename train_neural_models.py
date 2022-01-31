@@ -42,7 +42,7 @@ def train(model, train_loader, optimizer, epoch):
 	print('\n Training epoch {}:  Loss: {:.4f}\n'.format(epoch, loss.item()))
 
 
-def test(model, test_loader):
+def test_neural(model, test_loader):
 	model.eval()
 	test_loss = 0
 	correct = 0
@@ -60,7 +60,7 @@ def test(model, test_loader):
 
 	test_loss /= len(test_loader.dataset)
 
-	print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+	print('\nNeural Network Test Set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
 		test_loss, correct, len(test_loader.dataset),
 		100. * correct / len(test_loader.dataset)))
 
@@ -83,7 +83,7 @@ def train_mnist():
 	optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
 		train(model, train_loader, optimizer, epoch)
-		test(model, test_loader)
+		test_neural(model, test_loader)
 
 	mkdir_p(MNIST_NET_PATH)
 	torch.save(model.state_dict(), os.path.join(MNIST_NET_PATH, MNIST_NET_FILE))
@@ -130,7 +130,7 @@ def train_debd(dataset_name):
 						   eps=1e-08, weight_decay=0, amsgrad=False)
 	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
 		train(model, train_loader, optimizer, epoch)
-		test(model, test_loader)
+		test_neural(model, test_loader)
 
 	mkdir_p(DEBD_NET_PATH)
 	torch.save(model.state_dict(), os.path.join(DEBD_NET_PATH, "{}.pt".format(dataset_name)))
@@ -171,7 +171,7 @@ def train_binary_mnist():
 	optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
 		train(model, train_loader, optimizer, epoch)
-		test(model, test_loader)
+		test_neural(model, test_loader)
 
 	mkdir_p(BINARY_MNIST_NET_PATH)
 	torch.save(model.state_dict(), os.path.join(BINARY_MNIST_NET_PATH, BINARY_MNIST_NET_FILE))

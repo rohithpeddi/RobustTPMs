@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import torch
+from torch import optim
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
 
@@ -16,6 +17,7 @@ from utils import predict_labels_mnist
 from attacks.localsearch import attack as local_search_attack
 from attacks.localrestrictedsearch import attack as local_restricted_search_attack
 from attacks.sparsefool import attack as sparsefool_attack
+import torch.nn.functional as F
 
 ############################################################################
 
@@ -58,6 +60,11 @@ def load_dataset(dataset_name):
 		train_x = torch.from_numpy(train_x).to(torch.device(device))
 		valid_x = torch.from_numpy(valid_x).to(torch.device(device))
 		test_x = torch.from_numpy(test_x).to(torch.device(device))
+
+		train_labels = ((torch.from_numpy(train_labels)).type(torch.int64)).to(torch.device(device))
+		valid_labels = ((torch.from_numpy(valid_labels)).type(torch.int64)).to(torch.device(device))
+		test_labels = ((torch.from_numpy(test_labels)).type(torch.int64)).to(torch.device(device))
+
 	elif dataset_name == BINARY_MNIST:
 		train_x, valid_x, test_x = datasets.load_binarized_mnist_dataset()
 		train_labels = predict_labels_mnist(train_x)
@@ -67,6 +74,11 @@ def load_dataset(dataset_name):
 		train_x = torch.from_numpy(train_x).to(torch.device(device))
 		valid_x = torch.from_numpy(valid_x).to(torch.device(device))
 		test_x = torch.from_numpy(test_x).to(torch.device(device))
+
+		train_labels = torch.from_numpy(train_labels.reshape(-1, 1)).to(torch.device(device))
+		valid_labels = torch.from_numpy(valid_labels.reshape(-1, 1)).to(torch.device(device))
+		test_labels = torch.from_numpy(test_labels.reshape(-1, 1)).to(torch.device(device))
+
 	elif dataset_name in DEBD_DATASETS:
 		train_x, test_x, valid_x = datasets.load_debd(dataset_name)
 		train_labels, valid_labels, test_labels = generate_debd_labels(dataset_name, train_x, valid_x, test_x)
@@ -75,9 +87,9 @@ def load_dataset(dataset_name):
 		valid_x = torch.tensor(valid_x, dtype=torch.float32, device=torch.device(device))
 		test_x = torch.tensor(test_x, dtype=torch.float32, device=torch.device(device))
 
-	train_labels = torch.from_numpy(train_labels.reshape(-1, 1)).to(torch.device(device))
-	valid_labels = torch.from_numpy(valid_labels.reshape(-1, 1)).to(torch.device(device))
-	test_labels = torch.from_numpy(test_labels.reshape(-1, 1)).to(torch.device(device))
+		train_labels = torch.from_numpy(train_labels.reshape(-1, 1)).to(torch.device(device))
+		valid_labels = torch.from_numpy(valid_labels.reshape(-1, 1)).to(torch.device(device))
+		test_labels = torch.from_numpy(test_labels.reshape(-1, 1)).to(torch.device(device))
 
 	return train_x, valid_x, test_x, train_labels, valid_labels, test_labels
 
@@ -117,29 +129,11 @@ def load_structure(run_id, structure, dataset_name, structure_args):
 
 
 def load_einet(run_id, structure, dataset_name, einet_args, graph):
-	# RUN_STRUCTURE_DIRECTORY = os.path.join("run_{}".format(run_id), STRUCTURE_DIRECTORY)
-	# mkdir_p(RUN_STRUCTURE_DIRECTORY)
-	# args, graph = None, None
-	# if structure == POON_DOMINGOS:
-	# 	file_name = os.path.join(RUN_STRUCTURE_DIRECTORY, "{}_{}.pc".format(structure, dataset_name))
-	# 	if os.path.exists(file_name):
-	# 		graph = Graph.read_gpickle(file_name)
-	# 	else:
-	# 		AssertionError("Graph for the corresponding structure is not stored, generate graph first")
-	#
-	# else:
-	# 	# Structure - Binary Trees
-	# 	file_name = os.path.join(RUN_STRUCTURE_DIRECTORY,
-	# 							 "{}_{}_{}.pc".format(structure, dataset_name, einet_args[NUM_REPETITIONS]))
-	# 	if os.path.exists(file_name):
-	# 		graph = Graph.read_gpickle(file_name)
-	# 	else:
-	# 		AssertionError("Graph for the corresponding structure is not stored, generate graph first")
-
 	args = EinsumNetwork.Args(
 		num_var=einet_args[NUM_VAR],
 		num_dims=1,
-		num_classes=GENERATIVE_NUM_CLASSES,
+		use_em=einet_args[USE_EM],
+		num_classes=einet_args[NUM_CLASSES],
 		num_sums=einet_args[NUM_SUMS],
 		num_input_distributions=einet_args[NUM_INPUT_DISTRIBUTIONS],
 		exponential_family=einet_args[EXPONENTIAL_FAMILY],
@@ -256,8 +250,8 @@ def save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attac
 	return
 
 
-def train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x, einet_args, perturbations,
-				attack_type=CLEAN, batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False):
+def train_einet(run_id, structure, dataset_name, einet, train_labels, train_x, valid_x, test_x, einet_args,
+				perturbations, attack_type=CLEAN, batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False):
 	patience = 1 if is_adv else DEFAULT_EINET_PATIENCE
 
 	early_stopping = EarlyStopping(einet, patience=patience, filepath=EARLY_STOPPING_FILE,
@@ -277,10 +271,68 @@ def train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x
 		if (is_adv and attack_type != NEURAL_NET) or (
 				attack_type == NEURAL_NET and epoch_count == 0):
 			print("Fetching adversarial data, training epoch {}".format(epoch_count))
-			train_dataset = fetch_adv_data(einet, dataset_name, train_x, None, perturbations, attack_type,
+			train_dataset = fetch_adv_data(einet, dataset_name, train_x, train_labels, perturbations, attack_type,
 										   TRAIN_DATASET, combine=True)
 
 	save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type, perturbations)
+
+	return einet
+
+
+def epoch_einet_train_discriminative(train_dataloader, einet, epoch, dataset_name, optimizer):
+	train_dataloader = tqdm(
+		train_dataloader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
+		desc='Training epoch : {}, for dataset : {}'.format(epoch, dataset_name),
+		unit='batch'
+	)
+	einet.train()
+	for inputs, labels in train_dataloader:
+		optimizer.zero_grad()
+		outputs = einet.forward(inputs)
+		logits = torch.log_softmax(outputs, dim=1)
+		loss = F.nll_loss(logits, labels)
+		loss.backward()
+		optimizer.step()
+
+
+def evaluate_accuracy(einet, train_x, train_labels, valid_x, valid_labels, test_x, test_labels, epoch_count=0):
+	# Evaluate
+	einet.eval()
+	train_accuracy = EinsumNetwork.eval_accuracy_batched(einet, train_x, train_labels, batch_size=EVAL_BATCH_SIZE)
+	valid_accuracy = EinsumNetwork.eval_accuracy_batched(einet, valid_x, valid_labels, batch_size=EVAL_BATCH_SIZE)
+	test_accuracy = EinsumNetwork.eval_accuracy_batched(einet, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
+	print("[{}] train accuracy {} valid accuracy {} test accuracy {}".format(epoch_count, train_accuracy,
+																			 valid_accuracy, test_accuracy))
+	return train_accuracy, valid_accuracy, test_accuracy
+
+
+def train_discriminative_einet(run_id, structure, dataset_name, einet, train_x, train_labels, valid_x, valid_labels,
+							   test_x, test_labels, einet_args, epsilon,
+							   attack_type=CLEAN, batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False):
+	patience = 1 if is_adv else DEFAULT_EINET_PATIENCE
+
+	early_stopping = EarlyStopping(einet, patience=patience, filepath=EARLY_STOPPING_FILE, delta=EARLY_STOPPING_DELTA)
+
+	train_dataset = TensorDataset(train_x, train_labels)
+	NUM_EPOCHS = MAX_NUM_EPOCHS
+	# NUM_EPOCHS = 1
+
+	optimizer = optim.SGD(einet.parameters(), lr=0.01, momentum=0.9)
+	for epoch_count in range(NUM_EPOCHS):
+		train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
+		epoch_einet_train_discriminative(train_dataloader, einet, epoch_count, dataset_name, optimizer)
+		train_accuracy, valid_accuracy, test_accuracy = evaluate_accuracy(einet, train_x, train_labels, valid_x, valid_labels, test_x, test_labels, epoch_count=epoch_count)
+		early_stopping(-valid_accuracy, epoch_count)
+		if early_stopping.should_stop:
+			print("Early Stopping... {}".format(early_stopping))
+			break
+		if (is_adv and attack_type != NEURAL_NET) or (
+				attack_type == NEURAL_NET and epoch_count == 0):
+			print("Fetching adversarial data, training epoch {}".format(epoch_count))
+			train_dataset = fetch_adv_data(einet, dataset_name, train_x, None, epsilon, attack_type,
+										   TRAIN_DATASET, combine=True)
+
+	save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type, epsilon)
 
 	return einet
 
@@ -308,7 +360,8 @@ def fetch_adv_data(einet, dataset_name, inputs, labels, perturbations, attack_ty
 	adv_data = TensorDataset(adv_data)
 
 	if attack_type == NEURAL_NET:
-		data_file_directory = os.path.join(DATA_DEBD_DIRECTORY, "{}/augmented/sparsefool/{}".format(dataset_name, perturbations))
+		data_file_directory = os.path.join(DATA_DEBD_DIRECTORY,
+										   "{}/augmented/sparsefool/{}".format(dataset_name, perturbations))
 		mkdir_p(data_file_directory)
 		data_file_path = os.path.join(data_file_directory, "{}.pt".format(file_name))
 		torch.save(adv_data, data_file_path)

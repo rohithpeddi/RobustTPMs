@@ -21,7 +21,7 @@ def evaluation_message(message):
 	print("-----------------------------------------------------------------------------")
 
 
-def fetch_einet_args(dataset_name, num_var, exponential_family, exponential_family_args):
+def fetch_einet_args_discrete(dataset_name, num_var, exponential_family, exponential_family_args):
 	einet_args = dict()
 	einet_args[NUM_VAR] = num_var
 
@@ -56,6 +56,8 @@ def fetch_einet_args(dataset_name, num_var, exponential_family, exponential_fami
 		online_em_frequency = 5
 
 	einet_args[NUM_SUMS] = num_distributions
+	einet_args[USE_EM] = True
+	einet_args[NUM_CLASSES] = GENERATIVE_NUM_CLASSES
 	einet_args[NUM_INPUT_DISTRIBUTIONS] = num_distributions
 	einet_args[EXPONENTIAL_FAMILY] = exponential_family
 	einet_args[EXPONENTIAL_FAMILY_ARGS] = exponential_family_args
@@ -111,7 +113,7 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 
 			dataset_distribution_results = dict()
 
-			einet_args = fetch_einet_args(dataset_name, train_x.shape[1], exponential_family, exponential_family_args)
+			einet_args = fetch_einet_args_discrete(dataset_name, train_x.shape[1], exponential_family, exponential_family_args)
 
 			evaluation_message("Loading Einet")
 
@@ -120,10 +122,9 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 			if trained_clean_einet is None:
 				clean_einet = SPN.load_einet(run_id, structure, dataset_name, einet_args, graph)
 				evaluation_message("Training clean einet")
-				trained_clean_einet = SPN.train_einet(run_id, structure, dataset_name, clean_einet, train_x, valid_x,
-													  test_x, einet_args, perturbations, CLEAN,
-													  batch_size=einet_args[BATCH_SIZE],
-													  is_adv=False)
+				trained_clean_einet = SPN.train_einet(run_id, structure, dataset_name, clean_einet, train_labels,
+													  train_x, valid_x, test_x, einet_args, perturbations, CLEAN,
+													  batch_size=einet_args[BATCH_SIZE], is_adv=False)
 
 			einet = SPN.load_einet(run_id, structure, dataset_name, einet_args, graph)
 			trained_adv_einet = trained_clean_einet
@@ -132,9 +133,8 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 															  train_attack_type, perturbations)
 				if trained_adv_einet is None:
 					evaluation_message("Training adversarial einet with attack type {}".format(train_attack_type))
-					trained_adv_einet = SPN.train_einet(run_id, structure, dataset_name, einet, train_x, valid_x,
-														test_x,
-														einet_args, perturbations, train_attack_type,
+					trained_adv_einet = SPN.train_einet(run_id, structure, dataset_name, einet, train_labels, train_x,
+														valid_x, test_x, einet_args, perturbations, train_attack_type,
 														batch_size=einet_args[BATCH_SIZE], is_adv=True)
 				else:
 					evaluation_message("Loaded pretrained einet for the configuration")
@@ -212,37 +212,37 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 			dataset_distribution_results['Restricted Local Search - 5 Mean LL'] = mean_ll
 			dataset_distribution_results['Restricted Local Search - 5 Std LL'] = std_ll
 
-			# # ------  NEURAL NETWORK AREA ------
-			#
-			# # 8. Neural Network - 1 Test Set
-			# mean_ll, std_ll, nn1_text_x = SPN.test_einet(dataset_name, trained_adv_einet, trained_clean_einet, test_x,
-			# 											 test_labels, perturbations=1,
-			# 											 attack_type=NEURAL_NET,
-			# 											 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
-			# evaluation_message("Neural Network - 1 Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
-			#
-			# dataset_distribution_results['Neural Network - 1 Mean LL'] = mean_ll
-			# dataset_distribution_results['Neural Network - 1 Std LL'] = std_ll
-			#
-			# # 9. Neural Network - 3 Test Set
-			# mean_ll, std_ll, nn3_text_x = SPN.test_einet(dataset_name, trained_adv_einet, trained_clean_einet, test_x,
-			# 											 test_labels, perturbations=3,
-			# 											 attack_type=NEURAL_NET,
-			# 											 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
-			# evaluation_message("Neural Network - 3 Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
-			#
-			# dataset_distribution_results['Neural Network- 3 Mean LL'] = mean_ll
-			# dataset_distribution_results['Neural Network - 3 Std LL'] = std_ll
-			#
-			# # 10. Neural Network - 5 Test Set
-			# mean_ll, std_ll, nn5_text_x = SPN.test_einet(dataset_name, trained_adv_einet, trained_clean_einet, test_x,
-			# 											 test_labels, perturbations=5,
-			# 											 attack_type=NEURAL_NET,
-			# 											 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
-			# evaluation_message("Neural Network - 5 Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
-			#
-			# dataset_distribution_results['Neural Network - 5 Mean LL'] = mean_ll
-			# dataset_distribution_results['Neural Network - 5 Std LL'] = std_ll
+			# ------  NEURAL NETWORK AREA ------
+
+			# 8. Neural Network - 1 Test Set
+			mean_ll, std_ll, nn1_text_x = SPN.test_einet(dataset_name, trained_adv_einet, trained_clean_einet, test_x,
+														 test_labels, perturbations=1,
+														 attack_type=NEURAL_NET,
+														 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
+			evaluation_message("Neural Network - 1 Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
+
+			dataset_distribution_results['Neural Network - 1 Mean LL'] = mean_ll
+			dataset_distribution_results['Neural Network - 1 Std LL'] = std_ll
+
+			# 9. Neural Network - 3 Test Set
+			mean_ll, std_ll, nn3_text_x = SPN.test_einet(dataset_name, trained_adv_einet, trained_clean_einet, test_x,
+														 test_labels, perturbations=3,
+														 attack_type=NEURAL_NET,
+														 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
+			evaluation_message("Neural Network - 3 Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
+
+			dataset_distribution_results['Neural Network- 3 Mean LL'] = mean_ll
+			dataset_distribution_results['Neural Network - 3 Std LL'] = std_ll
+
+			# 10. Neural Network - 5 Test Set
+			mean_ll, std_ll, nn5_text_x = SPN.test_einet(dataset_name, trained_adv_einet, trained_clean_einet, test_x,
+														 test_labels, perturbations=5,
+														 attack_type=NEURAL_NET,
+														 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
+			evaluation_message("Neural Network - 5 Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
+
+			dataset_distribution_results['Neural Network - 5 Mean LL'] = mean_ll
+			dataset_distribution_results['Neural Network - 5 Std LL'] = std_ll
 
 			for evidence_percentage in EVIDENCE_PERCENTAGES:
 				dataset_distribution_evidence_results = dict()
@@ -317,37 +317,37 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 				dataset_distribution_evidence_results['Restricted Local search - 5 Mean LL'] = mean_ll
 				dataset_distribution_evidence_results['Restricted Local search - 5 Std LL'] = std_ll
 
-				# # ---------- NEURAL NETWORK AREA ------
-				#
-				# # 8. Neural Network - 1
-				# mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_adv_einet, evidence_percentage,
-				# 											 nn1_text_x, batch_size=DEFAULT_EVAL_BATCH_SIZE)
-				# evaluation_message(
-				# 	"Neural Network - 1  Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(
-				# 		evidence_percentage,
-				# 		mean_ll, std_ll))
-				# dataset_distribution_evidence_results['Neural Network - 1 Mean LL'] = mean_ll
-				# dataset_distribution_evidence_results['Neural Network - 1 Std LL'] = std_ll
-				#
-				# # 9. Neural Network - 3
-				# mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_adv_einet, evidence_percentage,
-				# 											 nn3_text_x, batch_size=DEFAULT_EVAL_BATCH_SIZE)
-				# evaluation_message(
-				# 	"Neural Network - 3  Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(
-				# 		evidence_percentage,
-				# 		mean_ll, std_ll))
-				# dataset_distribution_evidence_results['Neural Network - 3 Mean LL'] = mean_ll
-				# dataset_distribution_evidence_results['Neural Network - 3 Std LL'] = std_ll
-				#
-				# # 10. Neural Network - 5
-				# mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_adv_einet, evidence_percentage,
-				# 											 nn5_text_x, batch_size=DEFAULT_EVAL_BATCH_SIZE)
-				# evaluation_message(
-				# 	"Neural Network - 5  Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(
-				# 		evidence_percentage,
-				# 		mean_ll, std_ll))
-				# dataset_distribution_evidence_results['Neural Network - 5 Mean LL'] = mean_ll
-				# dataset_distribution_evidence_results['Neural Network - 5 Std LL'] = std_ll
+				# ---------- NEURAL NETWORK AREA ------
+
+				# 8. Neural Network - 1
+				mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_adv_einet, evidence_percentage,
+															 nn1_text_x, batch_size=DEFAULT_EVAL_BATCH_SIZE)
+				evaluation_message(
+					"Neural Network - 1  Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(
+						evidence_percentage,
+						mean_ll, std_ll))
+				dataset_distribution_evidence_results['Neural Network - 1 Mean LL'] = mean_ll
+				dataset_distribution_evidence_results['Neural Network - 1 Std LL'] = std_ll
+
+				# 9. Neural Network - 3
+				mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_adv_einet, evidence_percentage,
+															 nn3_text_x, batch_size=DEFAULT_EVAL_BATCH_SIZE)
+				evaluation_message(
+					"Neural Network - 3  Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(
+						evidence_percentage,
+						mean_ll, std_ll))
+				dataset_distribution_evidence_results['Neural Network - 3 Mean LL'] = mean_ll
+				dataset_distribution_evidence_results['Neural Network - 3 Std LL'] = std_ll
+
+				# 10. Neural Network - 5
+				mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_adv_einet, evidence_percentage,
+															 nn5_text_x, batch_size=DEFAULT_EVAL_BATCH_SIZE)
+				evaluation_message(
+					"Neural Network - 5  Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(
+						evidence_percentage,
+						mean_ll, std_ll))
+				dataset_distribution_evidence_results['Neural Network - 5 Mean LL'] = mean_ll
+				dataset_distribution_evidence_results['Neural Network - 5 Std LL'] = std_ll
 
 				dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
 				dataset_results[einet_args[NUM_INPUT_DISTRIBUTIONS]] = dataset_distribution_results
@@ -365,4 +365,4 @@ if __name__ == '__main__':
 	for perturbation in PERTURBATIONS:
 		evaluation_message("Training for Perturbation : {}".format(perturbation))
 		test_standard_spn_discrete(run_id=261, specific_datasets=DEBD_DATASETS, is_adv=True,
-								   train_attack_type=LOCAL_SEARCH, perturbations=perturbation)
+								   train_attack_type=NEURAL_NET, perturbations=perturbation)

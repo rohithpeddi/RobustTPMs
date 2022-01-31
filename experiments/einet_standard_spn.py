@@ -161,13 +161,13 @@ def test_standard_spn_discrete(specific_datasets=None, is_adv=False):
 				trained_einet = None
 				if is_adv:
 					evaluation_message("Training adversarial einet")
-					trained_einet = SPN.train_einet(1, structure, dataset_name, einet, train_x, valid_x, test_x,
-													einet_args, RESTRICTED_LOCAL_SEARCH,
+					trained_einet = SPN.train_einet(1, structure, dataset_name, einet, train_labels, train_x, valid_x,
+													test_x, einet_args, RESTRICTED_LOCAL_SEARCH,
 													batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=True)
 				else:
 					evaluation_message("Training clean einet")
-					trained_einet = SPN.train_einet(1, structure, dataset_name, einet, train_x, valid_x, test_x,
-													einet_args, RESTRICTED_LOCAL_SEARCH,
+					trained_einet = SPN.train_einet(1, structure, dataset_name, einet, train_labels, train_x, valid_x,
+													test_x, einet_args, RESTRICTED_LOCAL_SEARCH,
 													batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False)
 
 				mean_ll, std_ll = SPN.test_einet(dataset_name, trained_einet, test_x, None, RESTRICTED_LOCAL_SEARCH,

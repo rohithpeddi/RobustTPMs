@@ -60,13 +60,13 @@ class PGD(Attack):
             adv_images.requires_grad = True
             outputs = self.model(adv_images)
 
-            # # Calculate loss
-            # if self._targeted:
-            #     cost = -loss(outputs, target_labels)
-            # else:
-            #     cost = loss(outputs, labels)
+            # Calculate loss
+            if self._targeted:
+                cost = -loss(outputs, target_labels)
+            else:
+                cost = loss(outputs, labels)
 
-            cost = self.model.loss(outputs)
+            # cost = self.model.loss(outputs, labels)
 
             # Update adversarial images
             grad = torch.autograd.grad(cost, adv_images,

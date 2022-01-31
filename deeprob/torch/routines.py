@@ -24,6 +24,7 @@ def train_model(
         model: ProbabilisticModel,
         data_train: Union[np.ndarray, data.Dataset],
         data_valid: Union[np.ndarray, data.Dataset],
+        data_test: Union[np.ndarray, data.Dataset],
         setting: str,
         lr: float = 1e-3,
         batch_size: int = 100,
@@ -68,6 +69,7 @@ def train_model(
     # Setup the data loaders
     train_loader = data.DataLoader(data_train, batch_size, shuffle=True, drop_last=drop_last, num_workers=num_workers)
     valid_loader = data.DataLoader(data_valid, batch_size, shuffle=False, drop_last=False, num_workers=num_workers)
+    test_loader = data.DataLoader(data_test, batch_size, shuffle=False, drop_last=False, num_workers=num_workers)
 
     # Move the model to device
     model.to(device)
@@ -91,7 +93,7 @@ def train_model(
         )
     if setting == 'discriminative':
         return train_discriminative(
-            model, train_loader, valid_loader, optimizer, device,
+            model, train_loader, valid_loader, test_loader, optimizer, device,
             early_stopping, epochs, train_base, verbose
         )
     raise ValueError("Unknown train setting called {}".format(setting))
@@ -216,6 +218,7 @@ def train_discriminative(
         model: ProbabilisticModel,
         train_loader: data.DataLoader,
         valid_loader: data.DataLoader,
+        test_loader: data.DataLoader,
         optimizer: optim.Optimizer,
         device: torch.device,
         early_stopping: EarlyStopping,
@@ -252,6 +255,7 @@ def train_discriminative(
     running_train_hits = RunningAverageMetric()
     running_valid_loss = RunningAverageMetric()
     running_valid_hits = RunningAverageMetric()
+    running_test_hits = RunningAverageMetric()
 
     for epoch in range(1, epochs + 1):
         # Reset the metrics
@@ -259,6 +263,7 @@ def train_discriminative(
         running_train_hits.reset()
         running_valid_loss.reset()
         running_valid_hits.reset()
+        running_test_hits.reset()
 
         # Get the starting time
         start_time = time.perf_counter()
@@ -316,6 +321,23 @@ def train_discriminative(
                 hits = torch.eq(predictions, targets).float().mean()
                 running_valid_hits(hits.item(), num_samples=inputs.shape[0])
 
+        if verbose:
+            data_loader = tqdm(
+                test_loader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
+                desc='Valid Epoch {}/{}'.format(epoch, epochs), unit='batch'
+            )
+        else:
+            data_loader = test_loader
+
+        # Validation phase
+        with torch.no_grad():
+            for inputs, targets in data_loader:
+                inputs, targets = inputs.to(device), targets.to(device)
+                outputs = model(inputs)
+                predictions = torch.argmax(outputs, dim=1)
+                hits = torch.eq(predictions, targets).float().mean()
+                running_test_hits(hits.item(), num_samples=inputs.shape[0])
+
         # Compute the elapsed time per epoch
         elapsed_time = int(time.perf_counter() - start_time)
 
@@ -324,11 +346,12 @@ def train_discriminative(
         train_acc = running_train_hits.average()
         valid_loss = running_valid_loss.average()
         valid_acc = running_valid_hits.average()
+        test_acc = running_test_hits.average()
         print("Epoch {}/{} - train_loss: {:.4f}, valid_loss: {:.4f}, ".format(
             epoch, epochs, train_loss, valid_loss
         ), end="")
-        print("train_acc: {:.1f}%, valid_acc: {:.1f}% [{}s]".format(
-            train_acc * 100, valid_acc * 100, elapsed_time if elapsed_time > 0 else '<1'
+        print("train_acc: {:.3f}%, valid_acc: {:.3f}%, test_acc: {:.3f}% [{}s]".format(
+            train_acc * 100, valid_acc * 100, test_acc*100,  elapsed_time if elapsed_time > 0 else '<1'
         ))
 
         # Append losses and accuracies to history data
@@ -512,4 +535,4 @@ def test_discriminative(
             predictions = torch.argmax(outputs, dim=1)
             y_pred.extend(predictions.cpu().tolist())
             y_true.extend(targets.cpu().tolist())
-    return running_loss.average(), metrics.classification_report(y_true, y_pred, output_dict=True)
+    return running_loss.average(), metrics.classification_report(y_true, y_pred, output_dict=True, digits=6)

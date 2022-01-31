@@ -1,6 +1,8 @@
 MNIST = "mnist"
 FASHION_MNIST = "fashion_mnist"
 BINARY_MNIST = "binary_mnist"
+IMDB = 'imdb'
+WINE = 'wine'
 
 N_FEATURES = 'n_features'
 OUT_CLASSES = 'out_classes'  # The number of classes
@@ -9,8 +11,19 @@ NUM_REPETITIONS = 'num_repetitions'  # The region graph's number of repetitions
 NUM_INPUT_DISTRIBUTIONS = 'num_input_distributions'
 NUM_SUMS = "num_sums"
 GENERATIVE = 'generative'
+DISCRIMINATIVE = 'discriminative'
 CONDITIONAL = 'conditional'
 BATCH_SIZE = 'batch_size'
+NUM_CLASSES = 'num_classes'
+USE_EM = "use_em"
+NUM_EPOCHS = 'num_epochs'
+LEARNING_RATE = 'learning_rate'
+PATIENCE = 'patience'
+BATCHED_LEAVES = 'batched_leaves'
+SUM_CHANNELS = 'sum_channels'
+NUM_POOLING = 'num_pooling'
+IN_DROPOUT = 'in_dropout'
+SUM_DROPOUT = 'sum_dropout'
 
 HEIGHT = 'height'
 WIDTH = 'width'
@@ -43,10 +56,23 @@ BINARY_MNIST_MODEL_DIRECTORY = "checkpoints/models/binary_mnist"
 SAMPLES_DIRECTORY = "samples"
 CONDITIONAL_SAMPLES_DIRECTORY = "conditional_samples"
 
+#########################################################################################################
+
 GENERATIVE_NUM_CLASSES = 1
+
 MNIST_NUM_CLASSES = 10
+MNIST_CHANNELS = 1
 MNIST_HEIGHT = 28
 MNIST_WIDTH = 28
+
+FASHION_MNIST_NUM_CLASSES = 10
+FASHION_MNIST_CHANNELS = 1
+FASHION_MNIST_HEIGHT = 28
+FASHION_MNIST_WIDTH = 28
+
+#########################################################################################################
+
+
 NUM_CLUSTERS = 10
 
 DEFAULT_LEAF_DROPOUT = 0.2
@@ -70,7 +96,7 @@ EVIDENCE_PERCENTAGES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 CHECKPOINT_DIRECTORY = "../../checkpoints"
 EINET_MAX_NUM_EPOCHS = 30
-MNIST_CHANNELS = 1
+
 MAX_ITER = 50
 LAMBDA = 3.
 DEFAULT_PATIENCE = 30
@@ -93,12 +119,11 @@ RATSPN_MNIST_RESULTS_DIRECTORY = "results/ratspn/mnist"
 # DEBD_DATASETS = ['tmovie', 'cwebkb']
 
 DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
-				 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star', 'dna', 'kosarek', 'msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
-
-
+				 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star', 'dna', 'kosarek', 'msweb', 'book',
+				 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc']
 
 SMALL_VARIABLE_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
-				 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star']
+						   'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star']
 
 LARGE_VARIABLE_DATASETS = ['dna', 'kosarek', 'msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
@@ -149,7 +174,7 @@ STRUCTURES = [POON_DOMINGOS, BINARY_TREES]
 DEFAULT_PD_NUM_PIECES = [8]
 
 DEFAULT_ONLINE_EM_STEPSIZE = 0.05
-DEFAULT_ONLINE_EM_FREQUENCY = 50
+DEFAULT_ONLINE_EM_FREQUENCY = 1
 
 MAX_NUM_EPOCHS = 400
 
@@ -158,7 +183,7 @@ DEFAULT_EINET_PATIENCE = 1
 EARLY_STOPPING_FILE = 'checkpoint.pt'
 
 DEFAULT_NUM_REPETITIONS = 50
-DEFAULT_LEARNING_RATE = 1e-2
+DEFAULT_LEARNING_RATE = 5e-3
 DEFAULT_TRAIN_BATCH_SIZE = 100
 DEFAULT_EVAL_BATCH_SIZE = 100
 
@@ -166,9 +191,22 @@ DEFAULT_DEPTH = 3
 
 # NUM_INPUT_DISTRIBUTIONS_LIST = [10, 20, 30, 40, 50]
 NUM_INPUT_DISTRIBUTIONS_LIST = [10]
-PERTURBATIONS = [1, 3, 5]
+PERTURBATIONS = [5]
 
 NEURAL_NETWORK_ATTACK_MODEL_SUB_DIRECTORY = "AMNN"
 LOCAL_SEARCH_ATTACK_MODEL_SUB_DIRECTORY = "AMLS"
 LOCAL_RESTRICTED_SEARCH_ATTACK_MODEL_SUB_DIRECTORY = "AMRLS"
 CLEAN_MODEL_SUB_DIRECTORY = "M"
+
+##############################################################################################
+
+POON_DOMINGOS_GRID = [7]
+
+DEFAULT_NUM_SUMS = 10
+DEFAULT_NUM_INPUT_DISTRIBUTIONS = 10
+
+PGD = "pgd"
+FGSM = "fgsm"
+
+DGCSPN = "dgcspn"
+NET = "nn"

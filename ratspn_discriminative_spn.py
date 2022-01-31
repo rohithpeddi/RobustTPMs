@@ -1,10 +1,17 @@
-import os
+import argparse
+import json
+import numpy as np
 import torch
-import einet_base_spn as SPN
-from EinsumNetwork.ExponentialFamilyArray import NormalArray, CategoricalArray
+import torchattacks
+import os
 
-from utils import mkdir_p, pretty_print_dictionary, dictionary_to_file
+import base_spn as SPN
 from constants import *
+from tqdm import tqdm
+from torch.utils.data import TensorDataset, DataLoader
+import matplotlib.pyplot as plt
+from neural_models.MNet import MNet
+from train_neural_models import test_neural
 
 ############################################################################
 
@@ -15,180 +22,199 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 ############################################################################
 
 def evaluation_message(message):
-	print("-----------------------------------------------------------------------------")
+	print("\n")
 	print("-----------------------------------------------------------------------------")
 	print("#" + message)
 	print("-----------------------------------------------------------------------------")
 
 
-def test_standard_spn_discriminative(run_id, specific_datasets=None, is_adv=False, train_attack_type=None,
-									 test_attack_type=None, is_discriminative=False):
-	if specific_datasets is None:
-		specific_datasets = CONTINUOUS_DATASETS
-	else:
-		specific_datasets = [specific_datasets] if type(specific_datasets) is not list else specific_datasets
+# def generate_adv_samples_transfer(test_x, test_labels, attack):
+# 	test_dataset = TensorDataset(test_x, test_labels)
+# 	test_loader = DataLoader(test_dataset, shuffle=False, batch_size=100)
+# 	data_loader = tqdm(
+# 		test_loader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
+# 		desc='Test', unit='batch'
+# 	)
+#
+# 	originals = []
+# 	adversaries = []
+# 	adv_test = []
+# 	for inputs, targets in data_loader:
+# 		inputs, targets = inputs.to(device), targets.to(device)
+# 		inputs = inputs * 0.3081
+# 		inputs = inputs + 0.1307
+# 		adv_inputs = attack(inputs, targets)
+# 		adv_inputs = adv_inputs - 0.1307
+# 		adv_inputs = adv_inputs / 0.3081
+# 		adv_test.append(adv_inputs)
+#
+# 		if len(adversaries) < 1:
+# 			adversaries = (adv_inputs[0:5, :, :, :]).detach().clone()
+# 			originals = (inputs[0:5, :, :, :]).detach().clone()
+#
+# 	count = 0
+# 	plt.figure(figsize=(8, 10))
+# 	for id in range(len(adversaries)):
+# 		adv_ex = adversaries[id][0].cpu().numpy()
+# 		ori_ex = originals[id][0].cpu().numpy()
+# 		print(np.sum(np.abs(adv_ex-ori_ex)))
+# 		count += 1
+# 		plt.subplot(2, len(adversaries), count)
+# 		plt.imshow(adv_ex, cmap="gray")
+# 		count += 1
+# 		plt.subplot(2, len(adversaries), count)
+# 		plt.imshow(ori_ex, cmap="gray")
+# 	plt.tight_layout()
+# 	plt.show()
+#
+# 	return torch.cat(adv_test)
 
-	results = dict()
-	for dataset_name in specific_datasets:
-		evaluation_message("Dataset : {}".format(dataset_name))
-		dataset_results = dict()
+def generate_adv_samples_transfer(test_x, test_labels, attack, attack_type, attack_model):
+	test_dataset = TensorDataset(test_x, test_labels)
+	test_loader = DataLoader(test_dataset, shuffle=False, batch_size=50)
+	data_loader = tqdm(
+		test_loader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
+		desc='Test', unit='batch'
+	)
 
-		train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
+	originals = []
+	adversaries = []
+	adv_test = []
+	for inputs, targets in data_loader:
+		inputs, targets = inputs.to(device), targets.to(device)
+		inputs = inputs * 0.3081
+		inputs = inputs + 0.1307
+		adv_inputs = attack(inputs, targets)
+		adv_inputs = adv_inputs - 0.1307
+		adv_inputs = adv_inputs / 0.3081
+		adv_test.append(adv_inputs)
 
-		exponential_family, exponential_family_args, structures = None, None, None
+		if len(adversaries) < 1:
+			adversaries = (adv_inputs[0:5, :, :, :]).detach().clone()
+			originals = (test_x[0:5, :, :, :]).detach().clone()
 
-		if dataset_name in DISCRETE_DATASETS:
-			structures = [BINARY_TREES]
-			exponential_family = CategoricalArray
-			exponential_family_args = SPN.generate_exponential_family_args(exponential_family, dataset_name)
-		elif dataset_name in CONTINUOUS_DATASETS:
-			structures = STRUCTURES
-			exponential_family = NormalArray
-			exponential_family_args = SPN.generate_exponential_family_args(exponential_family, dataset_name)
+	count = 0
+	plt.figure(figsize=(8, 10))
+	for id in range(len(adversaries)):
+		adv_ex = adversaries[id][0].cpu().numpy()
+		ori_ex = originals[id][0].cpu().numpy()
+		# print(np.sum(np.abs(adv_ex-ori_ex)))
+		count += 1
+		plt.subplot(2, len(adversaries), count)
+		plt.title("Adv:{},M:{}".format(attack_type, attack_model))
+		plt.imshow(adv_ex, cmap="gray")
+		count += 1
+		plt.subplot(2, len(adversaries), count)
+		plt.title("Clean image")
+		plt.imshow(ori_ex, cmap="gray")
+	plt.tight_layout()
+	plt.show()
 
-		for structure in structures:
+	return torch.cat(adv_test)
 
-			evaluation_message("Using the structure {}".format(structure))
 
-			graph = None
-			if structure == POON_DOMINGOS:
-				structure_args = dict()
-				structure_args[HEIGHT] = MNIST_HEIGHT
-				structure_args[WIDTH] = MNIST_WIDTH
-				structure_args[PD_NUM_PIECES] = PD_NUM_PIECES
-				graph = SPN.load_structure(run_id, structure, dataset_name, structure_args)
-			else:
-				structure_args = dict()
-				structure_args[NUM_VAR] = train_x.shape[1]
-				structure_args[DEPTH] = DEFAULT_DEPTH
-				structure_args[NUM_REPETITIONS] = DEFAULT_NUM_REPETITIONS
-				graph = SPN.load_structure(run_id, structure, dataset_name, structure_args)
+def test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type):
+	if attack_type == PGD:
+		attack_net = torchattacks.PGD(trained_net, eps=50/255, alpha=1 / 255, steps=40, random_start=True)
+	elif attack_type == FGSM:
+		attack_net = torchattacks.FGSM(trained_net, eps=0.3)
 
-			for num_distributions in CONTINUOUS_NUM_INPUT_DISTRIBUTIONS_LIST:
+	# Generating adversarial samples using neural network
+	adv_test_x_neural = generate_adv_samples_transfer(test_x, test_labels, attack_net, attack_type, attack_model=NET)
 
-				dataset_distribution_results = dict()
+	nll, metrics = SPN.test_spn(trained_spn, adv_test_x_neural, spn_args, test_labels)
+	evaluation_message(" Adv data statistics attack : {} ".format(attack_type))
+	print('Test NLL: {:.4f}'.format(nll))
+	print('Test Accuracy: {}'.format(metrics['accuracy']))
 
-				evaluation_message("Number of distributions {}".format(num_distributions))
+	test_loader = DataLoader(TensorDataset(adv_test_x_neural, test_labels))
+	test_neural(trained_net, test_loader)
 
-				einet_args = dict()
-				einet_args[NUM_VAR] = train_x.shape[1]
-				if is_discriminative and dataset_name == MNIST:
-					einet_args[OUT_CLASSES] = MNIST_NUM_CLASSES
-				einet_args[NUM_SUMS] = num_distributions
-				einet_args[NUM_INPUT_DISTRIBUTIONS] = num_distributions
-				einet_args[EXPONENTIAL_FAMILY] = exponential_family
-				einet_args[EXPONENTIAL_FAMILY_ARGS] = exponential_family_args
-				einet_args[ONLINE_EM_FREQUENCY] = DEFAULT_ONLINE_EM_FREQUENCY
-				einet_args[ONLINE_EM_STEPSIZE] = DEFAULT_ONLINE_EM_STEPSIZE
-				einet_args[NUM_REPETITIONS] = DEFAULT_NUM_REPETITIONS
 
-				evaluation_message("Loading Einet")
+def test_mnist_continuous(args):
+	dataset_name = args.dataset_name
+	run_id = args.run_id
 
-				einet = SPN.load_einet(run_id, structure, dataset_name, einet_args)
+	train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
 
-				trained_einet = None
-				if is_adv:
-					evaluation_message("Training adversarial einet with attack type {}".format(train_attack_type))
-					trained_einet = SPN.train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x,
-													einet_args, train_attack_type,
-													batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=True)
+	spn_args = dict()
+	spn_args[N_FEATURES] = (MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH)
+	spn_args[OUT_CLASSES] = MNIST_NUM_CLASSES
+	spn_args[BATCH_SIZE] = args.batch_size
+	spn_args[NUM_EPOCHS] = 65
+	spn_args[LEARNING_RATE] = 5e-3
+	spn_args[PATIENCE] = 30
+	spn_args[BATCHED_LEAVES] = 30
+	spn_args[SUM_CHANNELS] = 60
+	spn_args[SUM_DROPOUT] = 0.2
+	spn_args[IN_DROPOUT] = 0.2
+	spn_args[NUM_POOLING] = 2
 
-				else:
-					evaluation_message("Training clean einet")
-					trained_einet = SPN.train_einet(run_id, structure, dataset_name, einet, train_x, valid_x, test_x,
-													einet_args, CLEAN, batch_size=DEFAULT_TRAIN_BATCH_SIZE,
-													is_adv=False)
+	trained_spn = SPN.load_pretrained_ratspn(run_id, dataset_name, spn_args)
+	if trained_spn is None:
+		dgcspn = SPN.load_spn(dataset_name, spn_args)
+		trained_spn = SPN.train_spn(run_id, dataset_name, dgcspn, train_x, valid_x, test_x, spn_args,
+									train_labels=train_labels, valid_labels=valid_labels, test_labels=test_labels)
 
-				# 1. Original Test Set
-				mean_ll, std_ll, text_x = SPN.test_einet(dataset_name, trained_einet, test_x, test_labels, None,
-														 batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=False)
-				evaluation_message("Clean Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
+	evaluation_message("Loading pretrained neural net for adversarial example generation")
+	trained_net = MNet().to(device)
+	trained_net.load_state_dict(torch.load(os.path.join(MNIST_NET_PATH, MNIST_NET_FILE)))
 
-				dataset_distribution_results['Original Mean LL'] = mean_ll
-				dataset_distribution_results['Original Std LL'] = std_ll
+	nll, metrics = SPN.test_spn(trained_spn, test_x, spn_args, test_labels)
 
-				if is_adv:
-					clean_einet = SPN.load_einet(run_id, structure, dataset_name, einet_args)
-					evaluation_message("Training clean einet")
-					trained_clean_einet = SPN.train_einet(run_id, structure, dataset_name, clean_einet, train_x,
-														  valid_x, test_x,
-														  einet_args, CLEAN, batch_size=DEFAULT_TRAIN_BATCH_SIZE,
-														  is_adv=False)
-				else:
-					trained_clean_einet = trained_einet
+	evaluation_message(" Clean data statistics ")
+	print('Test NLL: {:.4f}'.format(nll))
+	print('Test Accuracy: {}'.format(metrics['accuracy']))
+	test_loader = DataLoader(TensorDataset(test_x, test_labels))
+	test_neural(trained_net, test_loader)
 
-				# 2. Test set modified using LS on model M
-				mean_ll, std_ll, adv_test_x_ls = SPN.test_einet(dataset_name, trained_clean_einet, test_x, test_labels,
-																LOCAL_SEARCH, batch_size=1, is_adv=True)
-				evaluation_message(
-					"Attack type : {}, Adv Test - Mean LL : {}, Std LL : {}".format(LOCAL_SEARCH, mean_ll, std_ll))
+	# 1. FGSM
+	test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=FGSM)
 
-				dataset_distribution_results["Local Search Mean LL"] = mean_ll
-				dataset_distribution_results["Local Search Std LL"] = std_ll
+	# 2. PGD
+	test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=PGD)
 
-				# 3. Test set modified with neural network
-				mean_ll, std_ll, adv_test_x_nn = SPN.test_einet(dataset_name, trained_clean_einet, test_x, test_labels,
-																NEURAL_NET, batch_size=1, is_adv=True)
-				evaluation_message(
-					"Attack type : {}, Adv Test - Mean LL : {}, Std LL : {}".format(NEURAL_NET, mean_ll, std_ll))
 
-				dataset_distribution_results["Neural net Mean LL"] = mean_ll
-				dataset_distribution_results["Neural net Std LL"] = std_ll
+def test_fashion_mnist_continuous(args):
+	dataset_name = args.dataset_name
+	run_id = args.run_id
 
-				for evidence_percentage in EVIDENCE_PERCENTAGES:
-					dataset_distribution_evidence_results = dict()
+	train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
 
-					# 1. Original Test Set
-					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
-																 test_x, batch_size=DEFAULT_EVAL_BATCH_SIZE)
-					evaluation_message(
-						"Clean Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage,
-																							mean_ll,
-																							std_ll))
-					# 2. Test set modified using LS on model M
-					dataset_distribution_evidence_results['Clean Mean LL'] = mean_ll
-					dataset_distribution_evidence_results['Clean Std LL'] = std_ll
+	spn_args = dict()
+	spn_args[N_FEATURES] = (FASHION_MNIST_CHANNELS, FASHION_MNIST_HEIGHT, FASHION_MNIST_WIDTH)
+	spn_args[OUT_CLASSES] = MNIST_NUM_CLASSES
+	spn_args[BATCH_SIZE] = args.batch_size
+	spn_args[NUM_EPOCHS] = 100
+	spn_args[LEARNING_RATE] = 5e-3
+	spn_args[PATIENCE] = 30
+	spn_args[BATCHED_LEAVES] = 20
+	spn_args[SUM_CHANNELS] = 40
+	spn_args[SUM_DROPOUT] = 0.2
+	spn_args[IN_DROPOUT] = 0.2
+	spn_args[NUM_POOLING] = 2
 
-					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
-																 adv_test_x_ls, batch_size=DEFAULT_EVAL_BATCH_SIZE)
-					evaluation_message(
-						"Adv type:  {}, Evidence percentage : {}, Mean CLL : {}, Std CLL  : {}".format(LOCAL_SEARCH,
-																									   evidence_percentage,
-																									   mean_ll,
-																									   std_ll))
-					# 3. Test set modified with neural network
-					dataset_distribution_evidence_results["Local Search Mean CLL"] = mean_ll
-					dataset_distribution_evidence_results["Local Search Std CLL"] = std_ll
+	dgcspn = SPN.load_spn(dataset_name, spn_args)
 
-					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
-																 adv_test_x_nn, batch_size=DEFAULT_EVAL_BATCH_SIZE)
-					evaluation_message(
-						"Adv type:  {}, Evidence percentage : {}, Mean CLL : {}, Std CLL  : {}".format(NEURAL_NET,
-																									   evidence_percentage,
-																									   mean_ll,
-																									   std_ll))
-					dataset_distribution_evidence_results["Neural Net Mean CLL"] = mean_ll
-					dataset_distribution_evidence_results["Neural Net Std CLL"] = std_ll
+	trained_spn = SPN.train_spn(1, dataset_name, dgcspn, train_x, valid_x, test_x, spn_args, train_labels=train_labels,
+								valid_labels=valid_labels, test_labels=test_labels)
 
-					dataset_distribution_results[evidence_percentage] = dataset_distribution_evidence_results
-				dataset_results[num_distributions] = dataset_distribution_results
+	nll, metrics = SPN.test_spn(trained_spn, test_x, spn_args, test_labels)
 
-		results[dataset_name] = dataset_results
-		dictionary_to_file(dataset_name, dataset_results, run_id, is_adv=is_adv, is_einet=True)
-		pretty_print_dictionary(dataset_results)
-	pretty_print_dictionary(results)
+	evaluation_message(" Clean data statistics ")
+
+	print('Test NLL: {:.4f}'.format(nll))
+	metrics = json.loads(json.dumps(metrics), parse_float=lambda x: round(float(x), 6))
+	print('Test Metrics: {}'.format(json.dumps(metrics, indent=4)))
 
 
 if __name__ == '__main__':
-	for dataset_name in DEBD_DATASETS:
-		test_standard_spn_discriminative(run_id=1, specific_datasets=[dataset_name], is_adv=True,
-										 train_attack_type=LOCAL_SEARCH)
-# for dataset_name in DEBD_DATASETS:
-# 	test_standard_spn_discrete(run_id=1, specific_datasets=[dataset_name], is_adv=False,
-# 							   train_attack_type=CLEAN, test_attack_type=[CLEAN, LOCAL_SEARCH, NEURAL_NET])
-# 	test_standard_spn_discrete(run_id=2, specific_datasets=[dataset_name], is_adv=False,
-# 							   train_attack_type=LOCAL_SEARCH, test_attack_type=[CLEAN, LOCAL_SEARCH, NEURAL_NET])
-# 	test_standard_spn_discrete(run_id=3, specific_datasets=[dataset_name], is_adv=False,
-# 							   train_attack_type=NEURAL_NET, test_attack_type=[CLEAN, LOCAL_SEARCH, NEURAL_NET])
-# 	test_standard_spn_discrete(run_id=4, specific_datasets=[dataset_name], is_adv=False,
-# 							   train_attack_type=LOCAL_RESTRICTED_SEARCH, test_attack_type=[CLEAN, LOCAL_SEARCH, NEURAL_NET])
+	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+	parser.add_argument('--run_id', type=int, default=27, help="")
+	parser.add_argument('--batch_size', type=int, default=100, help="")
+	parser.add_argument('--dataset_name', type=str, required=True, help="dataset name")
+	ARGS = parser.parse_args()
+	print(ARGS)
+
+	test_mnist_continuous(ARGS)
+# test_fashion_mnist_continuous(ARGS)

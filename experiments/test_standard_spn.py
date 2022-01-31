@@ -49,16 +49,15 @@ def test_standard_spn_continuous():
 				print_message += (" " + "loading ratspn")
 				evaluation_message(print_message)
 
-				ratspn = SPN.load_ratspn(dataset_name, ratspn_args)
+				ratspn = SPN.load_spn(dataset_name, ratspn_args)
 
 				print_message += (" " + "training einet")
 				evaluation_message(print_message)
 
-				trained_ratspn = SPN.train_clean_ratspn(dataset_name, ratspn, train_x, train_labels, valid_x,
-														valid_labels, test_x, test_labels,
-														ratspn_args, batch_size=TRAIN_BATCH_SIZE)
+				trained_ratspn = SPN.train_spn(1, dataset_name, ratspn, train_x, train_labels, valid_x, valid_labels,
+											   test_x, test_labels, ratspn_args)
 
-				mean_ll, std_ll = SPN.test_clean_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
+				mean_ll, std_ll = SPN.test_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
 				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
 
 				print_message += (" " + "generating samples")
@@ -98,9 +97,9 @@ def test_standard_spn_adv_test_data():
 				print_message += (" " + "loading pretrained ratspn")
 				evaluation_message(print_message)
 
-				trained_ratspn = SPN.load_pretrained_ratspn(dataset_name, ratspn_args)
+				trained_ratspn = SPN.load_pretrained_ratspn(1, dataset_name, ratspn_args)
 
-				mean_ll, std_ll = SPN.test_clean_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
+				mean_ll, std_ll = SPN.test_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
 				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
 
 
@@ -134,14 +133,13 @@ def test_standard_spn_discrete(specific_datasets=None):
 
 			evaluation_message("Loading ratspn")
 
-			ratspn = SPN.load_ratspn(dataset_name, ratspn_args)
+			ratspn = SPN.load_spn(dataset_name, ratspn_args)
 
 			evaluation_message("Training ratspn")
 
-			trained_ratspn = SPN.train_clean_ratspn(dataset_name, ratspn, train_x, valid_x,
-													test_x, ratspn_args, batch_size=TRAIN_BATCH_SIZE)
+			trained_ratspn = SPN.train_spn(1, dataset_name, ratspn, train_x, valid_x, test_x, ratspn_args)
 
-			mean_ll, std_ll = SPN.test_clean_spn(dataset_name, trained_ratspn, test_x, batch_size=EVAL_BATCH_SIZE)
+			mean_ll, std_ll = SPN.test_spn(dataset_name, trained_ratspn, test_x, batch_size=EVAL_BATCH_SIZE)
 			evaluation_message("Clean Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
 
 			dataset_distribution_results['Clean Mean LL'] = mean_ll

@@ -278,7 +278,7 @@ def log_likelihoods(outputs, labels=None):
 		if num_dist == 1:
 			lls = outputs
 		else:
-			num_dist = torch.tensor(float(num_dist), device=outputs.DEVICE)
+			num_dist = torch.tensor(float(num_dist), device=outputs.device)
 			lls = torch.logsumexp(outputs - torch.log(num_dist), -1)
 	else:
 		lls = outputs.gather(-1, labels.unsqueeze(-1))
@@ -288,7 +288,7 @@ def log_likelihoods(outputs, labels=None):
 def eval_accuracy_batched(einet, x, labels, batch_size):
 	"""Computes accuracy in batched way."""
 	with torch.no_grad():
-		idx_batches = torch.arange(0, x.shape[0], dtype=torch.int64, device=x.DEVICE).split(batch_size)
+		idx_batches = torch.arange(0, x.shape[0], dtype=torch.int64, device=x.device).split(batch_size)
 		n_correct = 0
 		for batch_count, idx in enumerate(idx_batches):
 			batch_x = x[idx, :]

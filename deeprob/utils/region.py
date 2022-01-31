@@ -77,6 +77,12 @@ class RegionGraph:
 
         return layers
 
+    def poon_domingos_layers(self) -> List[List[tuple]]:
+        root = [self.items]
+        layers = [root]
+
+
+
     def make_layers(self, n_repetitions: int = 1) -> List[List[tuple]]:
         """
         Generate a random graph's layers over multiple repetitions of features.
