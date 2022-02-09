@@ -66,7 +66,6 @@ def test_neural(model, test_loader):
 
 
 def train_mnist():
-
 	transform = transforms.Compose([
 		transforms.ToTensor(),
 		transforms.Normalize((0.1307,), (0.3081,))
@@ -79,7 +78,7 @@ def train_mnist():
 	test_loader = torch.utils.data.DataLoader(dataset2, batch_size=100, shuffle=True)
 
 	# Training settings
-	model = MNet().to(device)
+	model = MNet(10).to(device)
 	optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
 		train(model, train_loader, optimizer, epoch)
@@ -87,6 +86,72 @@ def train_mnist():
 
 	mkdir_p(MNIST_NET_PATH)
 	torch.save(model.state_dict(), os.path.join(MNIST_NET_PATH, MNIST_NET_FILE))
+
+
+def train_fashion_mnist():
+	transform = transforms.Compose([
+		transforms.ToTensor()
+	])
+
+	dataset1 = torch_datasets.FashionMNIST(DATA_DIRECTORY, train=True, download=True, transform=transform)
+	dataset2 = torch_datasets.FashionMNIST(DATA_DIRECTORY, train=False, transform=transform)
+
+	train_loader = torch.utils.data.DataLoader(dataset1, batch_size=100, shuffle=True)
+	test_loader = torch.utils.data.DataLoader(dataset2, batch_size=100, shuffle=True)
+
+	# Training settings
+	model = MNet(10).to(device)
+	optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
+		train(model, train_loader, optimizer, epoch)
+		test_neural(model, test_loader)
+
+	mkdir_p(FASHION_MNIST_NET_PATH)
+	torch.save(model.state_dict(), os.path.join(FASHION_MNIST_NET_PATH, FASHION_MNIST_NET_FILE))
+
+
+def train_kmnist():
+	transform = transforms.Compose([
+		transforms.ToTensor()
+	])
+
+	dataset1 = torch_datasets.KMNIST(DATA_DIRECTORY, train=True, download=True, transform=transform)
+	dataset2 = torch_datasets.KMNIST(DATA_DIRECTORY, train=False, transform=transform)
+
+	train_loader = torch.utils.data.DataLoader(dataset1, batch_size=100, shuffle=True)
+	test_loader = torch.utils.data.DataLoader(dataset2, batch_size=100, shuffle=True)
+
+	# Training settings
+	model = MNet(10).to(device)
+	optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
+		train(model, train_loader, optimizer, epoch)
+		test_neural(model, test_loader)
+
+	mkdir_p(KMNIST_NET_PATH)
+	torch.save(model.state_dict(), os.path.join(KMNIST_NET_PATH, KMNIST_NET_FILE))
+
+
+def train_emnist():
+	transform = transforms.Compose([
+		transforms.ToTensor()
+	])
+
+	dataset1 = torch_datasets.EMNIST(DATA_DIRECTORY, train=True, download=True, transform=transform)
+	dataset2 = torch_datasets.EMNIST(DATA_DIRECTORY, train=False, transform=transform)
+
+	train_loader = torch.utils.data.DataLoader(dataset1, batch_size=100, shuffle=True)
+	test_loader = torch.utils.data.DataLoader(dataset2, batch_size=100, shuffle=True)
+
+	# Training settings
+	model = MNet(62).to(device)
+	optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+	for epoch in range(TRAIN_NEURAL_NET_MAX_NUM_EPOCHS):
+		train(model, train_loader, optimizer, epoch)
+		test_neural(model, test_loader)
+
+	mkdir_p(EMNIST_NET_PATH)
+	torch.save(model.state_dict(), os.path.join(EMNIST_NET_PATH, EMNIST_NET_FILE))
 
 
 def generate_debd_labels(dataset_name, train_x, valid_x, test_x):
@@ -145,7 +210,6 @@ def train_debd_datasets():
 
 
 def train_binary_mnist():
-
 	train_x, valid_x, test_x = datasets.load_binarized_mnist_dataset()
 
 	train_x = train_x.reshape((-1, MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH))
@@ -179,5 +243,8 @@ def train_binary_mnist():
 
 if __name__ == '__main__':
 	# train_mnist()
-	train_debd_datasets()
-# train_binary_mnist()
+	# train_debd_datasets()
+	# train_binary_mnist()
+	# train_fashion_mnist()
+	train_kmnist()
+	train_emnist()

@@ -59,7 +59,7 @@ def generate_adv_sample(dataset_name, inputs, net, perturbations, target=None):
 		return 1, perturbed_inputs
 
 
-def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, combine=False, batched=True):
+def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, combine=False, batched=True, train_data=None):
 	adv_inputs = inputs.detach().clone()
 	adv_target = labels.detach().clone()
 	original_N = inputs.shape[0]

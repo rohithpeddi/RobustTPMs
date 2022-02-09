@@ -72,6 +72,28 @@ def load_dataset(dataset_name):
 		valid_x = valid_x.reshape((-1, MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH))
 		test_x = test_x.reshape((-1, MNIST_CHANNELS, MNIST_HEIGHT, MNIST_WIDTH))
 
+	elif dataset_name == CIFAR_10:
+		train_x, train_labels, test_x, test_labels = datasets.load_cifar_10()
+		train_x /= 255.
+		test_x /= 255.
+
+		valid_x = train_x[-10000:, :]
+		train_x = train_x[:-10000, :]
+		valid_labels = train_labels[-10000:]
+		train_labels = train_labels[:-10000]
+
+		train_x = torch.from_numpy(train_x).to(torch.device(device))
+		valid_x = torch.from_numpy(valid_x).to(torch.device(device))
+		test_x = torch.from_numpy(test_x).to(torch.device(device))
+
+		train_labels = ((torch.from_numpy(train_labels)).type(torch.int64)).to(torch.device(device))
+		valid_labels = ((torch.from_numpy(valid_labels)).type(torch.int64)).to(torch.device(device))
+		test_labels = ((torch.from_numpy(test_labels)).type(torch.int64)).to(torch.device(device))
+
+		train_x = train_x.reshape((-1, CIFAR_10_CHANNELS, CIFAR_10_HEIGHT, CIFAR_10_WIDTH))
+		valid_x = valid_x.reshape((-1, CIFAR_10_CHANNELS, CIFAR_10_HEIGHT, CIFAR_10_WIDTH))
+		test_x = test_x.reshape((-1, CIFAR_10_CHANNELS, CIFAR_10_HEIGHT, CIFAR_10_WIDTH))
+
 	elif dataset_name == BINARY_MNIST:
 		train_x, valid_x, test_x = datasets.load_binarized_mnist_dataset()
 		train_labels = predict_labels_mnist(train_x)
@@ -136,7 +158,7 @@ def load_structure(run_id, structure, dataset_name, structure_args):
 
 
 def load_spn(dataset_name, spn_args):
-	if dataset_name == MNIST or dataset_name == FASHION_MNIST:
+	if dataset_name in [MNIST, FASHION_MNIST, CIFAR_10]:
 		dgcspn = spn_models.DgcSpn(
 			spn_args[N_FEATURES],
 			out_classes=spn_args[OUT_CLASSES],  # The number of classes
@@ -169,6 +191,10 @@ def get_model_file_path(run_id, dataset_name, ratspn_args):
 	file_path = None
 	if dataset_name == MNIST:
 		RUN_MODEL_DIRECTORY = os.path.join("run_{}".format(run_id), MNIST_MODEL_DIRECTORY)
+		mkdir_p(RUN_MODEL_DIRECTORY)
+		file_path = os.path.join(RUN_MODEL_DIRECTORY, "dgcspn_{}.pt".format(dataset_name))
+	if dataset_name == CIFAR_10:
+		RUN_MODEL_DIRECTORY = os.path.join("run_{}".format(run_id), CIFAR_10_MODEL_DIRECTORY)
 		mkdir_p(RUN_MODEL_DIRECTORY)
 		file_path = os.path.join(RUN_MODEL_DIRECTORY, "dgcspn_{}.pt".format(dataset_name))
 	elif dataset_name in DEBD_DATASETS:

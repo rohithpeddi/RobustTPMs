@@ -5,6 +5,7 @@ from torch import nn, optim
 from EinsumNetwork import Graph
 from EinsumNetwork.FactorizedLeafLayer import FactorizedLeafLayer, NormalArray
 
+
 class Args(object):
 	"""
     Arguments for EinsumNetwork class.

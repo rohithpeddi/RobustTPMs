@@ -63,14 +63,11 @@ class BIM(Attack):
                 cost = loss(outputs, labels)
 
             # Update adversarial images
-            grad = torch.autograd.grad(cost, images,
-                                       retain_graph=False,
-                                       create_graph=False)[0]
+            grad = torch.autograd.grad(cost, images, retain_graph=False, create_graph=False)[0]
 
             adv_images = images + self.alpha*grad.sign()
             a = torch.clamp(ori_images - self.eps, min=0)
-            b = (adv_images >= a).float()*adv_images \
-                + (adv_images < a).float()*a
+            b = (adv_images >= a).float()*adv_images + (adv_images < a).float()*a
             c = (b > ori_images+self.eps).float()*(ori_images+self.eps) \
                 + (b <= ori_images + self.eps).float()*b
             images = torch.clamp(c, max=1).detach()

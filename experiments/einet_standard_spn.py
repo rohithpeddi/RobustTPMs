@@ -194,9 +194,9 @@ def test_standard_spn_discrete(specific_datasets=None, is_adv=False):
 				for evidence_percentage in EVIDENCE_PERCENTAGES:
 					dataset_distribution_evidence_results = dict()
 
-					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
-																 test_x, batch_size=DEFAULT_EVAL_BATCH_SIZE,
-																 is_adv=False)
+					mean_ll, std_ll = SPN.test_conditional_einet(CLEAN, 0, dataset_name, trained_einet,
+																 evidence_percentage, test_x,
+																 batch_size=DEFAULT_EVAL_BATCH_SIZE)
 					evaluation_message(
 						"Clean Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage,
 																							mean_ll,
@@ -204,9 +204,9 @@ def test_standard_spn_discrete(specific_datasets=None, is_adv=False):
 					dataset_distribution_evidence_results['Clean Mean LL'] = mean_ll
 					dataset_distribution_evidence_results['Clean Std LL'] = std_ll
 
-					mean_ll, std_ll = SPN.test_conditional_einet(dataset_name, trained_einet, evidence_percentage,
-																 test_x, batch_size=DEFAULT_EVAL_BATCH_SIZE,
-																 is_adv=True)
+					mean_ll, std_ll = SPN.test_conditional_einet(CLEAN, 0, dataset_name, trained_einet,
+																 evidence_percentage, test_x,
+																 batch_size=DEFAULT_EVAL_BATCH_SIZE)
 					evaluation_message(
 						"Adv Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll,
 																						  std_ll))

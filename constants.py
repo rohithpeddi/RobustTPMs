@@ -3,6 +3,7 @@ FASHION_MNIST = "fashion_mnist"
 BINARY_MNIST = "binary_mnist"
 IMDB = 'imdb'
 WINE = 'wine'
+CIFAR_10 = "cifar_10"
 
 N_FEATURES = 'n_features'
 OUT_CLASSES = 'out_classes'  # The number of classes
@@ -24,6 +25,9 @@ SUM_CHANNELS = 'sum_channels'
 NUM_POOLING = 'num_pooling'
 IN_DROPOUT = 'in_dropout'
 SUM_DROPOUT = 'sum_dropout'
+
+LOGLIKELIHOOD_TABLE = "ll_table"
+CONDITIONAL_LOGLIKELIHOOD_TABLES = "cll_tables"
 
 HEIGHT = 'height'
 WIDTH = 'width'
@@ -50,6 +54,7 @@ VALID_DATASET = "valid_dataset"
 
 MODEL_DIRECTORY = "checkpoints/models"
 MNIST_MODEL_DIRECTORY = "checkpoints/models/mnist"
+CIFAR_10_MODEL_DIRECTORY = "checkpoints/models/cifar_10"
 DEBD_MODEL_DIRECTORY = "checkpoints/models/DEBD"
 BINARY_MNIST_MODEL_DIRECTORY = "checkpoints/models/binary_mnist"
 
@@ -69,6 +74,11 @@ FASHION_MNIST_NUM_CLASSES = 10
 FASHION_MNIST_CHANNELS = 1
 FASHION_MNIST_HEIGHT = 28
 FASHION_MNIST_WIDTH = 28
+
+CIFAR_10_NUM_CLASSES = 10
+CIFAR_10_CHANNELS = 3
+CIFAR_10_HEIGHT = 32
+CIFAR_10_WIDTH = 32
 
 #########################################################################################################
 
@@ -116,9 +126,9 @@ RATSPN_DEBD_RESULTS_DIRECTORY = "results/ratspn/DEBD"
 RATSPN_BINARY_MNIST_RESULTS_DIRECTORY = "results/ratspn/binary_mnist"
 RATSPN_MNIST_RESULTS_DIRECTORY = "results/ratspn/mnist"
 
-# DEBD_DATASETS = ['tmovie', 'cwebkb']
+# DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd',]
 
-DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
+DEBD_DATASETS = ['plants', 'baudio',
 				 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star', 'dna', 'kosarek', 'msweb', 'book',
 				 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc']
 
@@ -140,7 +150,16 @@ MANUAL_SEED = 999
 
 DATA_DIRECTORY = "data/"
 MNIST_NET_PATH = "checkpoints/neural/mnist/"
+FASHION_MNIST_NET_PATH = "checkpoints/neural/fashion_mnist/"
+EMNIST_NET_PATH = "checkpoints/neural/emnist/"
+QMNIST_NET_PATH = "checkpoints/neural/qmnist/"
+KMNIST_NET_PATH = "checkpoints/neural/kmnist/"
+
 MNIST_NET_FILE = "mnist_cnn.pt"
+FASHION_MNIST_NET_FILE = "fashion_mnist_cnn.pt"
+EMNIST_NET_FILE = "emnist_cnn.pt"
+QMNIST_NET_FILE = "qmnist_cnn.pt"
+KMNIST_NET_FILE = "kmnist_cnn.pt"
 BINARY_MNIST_NET_FILE = "binary_mnist_cnn.pt"
 
 BINARY_MNIST_NET_PATH = "checkpoints/neural/binary_mnist"
@@ -165,6 +184,8 @@ RESTRICTED_LOCAL_SEARCH = "local_restricted_search"
 NEURAL_NET = "neural_net"
 EVOLUTIONARY = "evolutionary"
 GRADIENT = "gradient"
+AVERAGE = "average"
+WEAKER_MODEL = "weaker_model"
 
 ##############################################################################################
 BINARY_DEBD_HAMMING_THRESHOLD = 5
@@ -191,7 +212,8 @@ DEFAULT_DEPTH = 3
 
 # NUM_INPUT_DISTRIBUTIONS_LIST = [10, 20, 30, 40, 50]
 NUM_INPUT_DISTRIBUTIONS_LIST = [10]
-PERTURBATIONS = [5]
+PERTURBATIONS = [0, 1, 3, 5]
+DEFAULT_AVERAGE_REPEAT_SIZE = 100
 
 NEURAL_NETWORK_ATTACK_MODEL_SUB_DIRECTORY = "AMNN"
 LOCAL_SEARCH_ATTACK_MODEL_SUB_DIRECTORY = "AMLS"
@@ -210,3 +232,10 @@ FGSM = "fgsm"
 
 DGCSPN = "dgcspn"
 NET = "nn"
+CW = "cw"
+PGDL2 = "pgdl2"
+SQUARE = "square"
+DEEPFOOL = "deepfool"
+SPARSEFOOL = "sparsefool"
+FAB = "fab"
+ONE_PIXEL = "one_pixel"

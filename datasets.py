@@ -1,6 +1,6 @@
 import json
 import pickle
-
+import tarfile
 import numpy as np
 import os
 import tempfile
@@ -18,10 +18,11 @@ CHECKPOINT_DIRECTORY = "../../checkpoints"
 
 DATA_MNIST = "data/MNIST/raw"
 DATA_DEBD = "data/DEBD"
-DATA_FASHION_MNIST = "data/fashion-mnist"
+DATA_FASHION_MNIST = "data/fashion_mnist"
 DATA_SVHN = "data/svhn"
 DATA_IMDB = "data/imdb"
 DATA_WINE = "data/wine"
+DATA_CIFAR_10 = "data/cifar_10"
 DATA_THEOREM = "data/theorem"
 DATA_BINARY_MNIST = "data/binary_mnist"
 
@@ -99,11 +100,48 @@ def maybe_download_fashion_mnist():
 	for file in mnist_files:
 		if not maybe_download(DATA_FASHION_MNIST, 'http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/', file):
 			continue
-		print('unzip data/fashion-mnist/{}'.format(file))
+		print('unzip data/fashion_mnist/{}'.format(file))
 		filepath = os.path.join(DATA_FASHION_MNIST, file)
 		with gzip.open(filepath, 'rb') as f_in:
 			with open(filepath[0:-3], 'wb') as f_out:
 				shutil.copyfileobj(f_in, f_out)
+
+
+def maybe_download_cifar_10():
+	cifar_10_file = 'cifar-10-python.tar.gz'
+	if not maybe_download(DATA_CIFAR_10, 'https://www.cs.toronto.edu/~kriz/', cifar_10_file):
+		return
+	cifar_tar = tarfile.open(os.path.join(DATA_CIFAR_10, cifar_10_file))
+	cifar_tar.extractall(DATA_CIFAR_10)
+	cifar_tar.close()
+
+
+def load_cifar_10():
+	DATA_CIFAR_FOLDER = os.path.join(DATA_CIFAR_10, 'cifar-10-batches-py')
+	train_x = []
+	train_labels = []
+	test_x = []
+	test_labels = []
+	cifar_train_files = ['data_batch_1', 'data_batch_2', 'data_batch_3', 'data_batch_4', 'data_batch_5']
+	for file in cifar_train_files:
+		filepath = os.path.join(DATA_CIFAR_FOLDER, file)
+		with open(filepath, 'rb') as f_in:
+			dictionary = pickle.load(f_in, encoding='bytes')
+			train_x.append(dictionary[b'data'])
+			train_labels.append(dictionary[b'labels'])
+
+	filepath = os.path.join(DATA_CIFAR_FOLDER, 'test_batch')
+	with open(filepath, 'rb') as f_in:
+		dictionary = pickle.load(f_in, encoding='bytes')
+		test_x.append(dictionary[b'data'])
+		test_labels.append(dictionary[b'labels'])
+
+	train_x = np.concatenate(train_x).astype(np.float32)
+	train_labels = np.concatenate(train_labels).reshape((-1)).astype(np.float32)
+	test_x = np.concatenate(test_x).astype(np.float32)
+	test_labels = np.concatenate(test_labels).reshape((-1)).astype(np.float32)
+
+	return train_x, train_labels, test_x, test_labels
 
 
 def load_fashion_mnist():
@@ -313,44 +351,48 @@ def load_imdb():
 def maybe_download_all_data():
 	print('Downloading dataset -- this might take a while')
 
-	print()
-	print('MNIST')
-	maybe_download_mnist()
-
-	print()
-	print('fashion MNIST')
-	maybe_download_fashion_mnist()
-
-	print()
-	print('20 binary datasets')
-	maybe_download_debd()
-
-	print()
-	print('SVHN')
-	maybe_download_svhn()
-
-	print()
-	print('BINARY_MNIST')
-	maybe_download_binary_mnist()
+	# print()
+	# print('MNIST')
+	# maybe_download_mnist()
+	#
+	# print()
+	# print('fashion MNIST')
+	# maybe_download_fashion_mnist()
+	#
+	# print()
+	# print('20 binary datasets')
+	# maybe_download_debd()
+	#
+	# print()
+	# print('SVHN')
+	# maybe_download_svhn()
+	#
+	# print()
+	# print('BINARY_MNIST')
+	# maybe_download_binary_mnist()
+	#
+	# print('')
+	# print('*** Check for imdb ***')
+	# maybe_download_imdb()
+	#
+	# print('')
+	# print('*** Check for theorem ***')
+	# maybe_download(DATA_THEOREM, 'https://www.openml.org/data/get_csv/1587932/phpPbCMyg/', 'theorem.csv')
+	#
+	# print('')
+	# print('*** Check for higgs ***')
+	# maybe_download_higgs()
+	#
+	# print('')
+	# print('*** Check for wine ***')
+	# maybe_download(DATA_WINE, 'https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/',
+	# 			   'winequality-red.csv')
+	# maybe_download(DATA_WINE, 'https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/',
+	# 			   'winequality-white.csv')
 
 	print('')
-	print('*** Check for imdb ***')
-	maybe_download_imdb()
-
-	print('')
-	print('*** Check for theorem ***')
-	maybe_download(DATA_THEOREM, 'https://www.openml.org/data/get_csv/1587932/phpPbCMyg/', 'theorem.csv')
-
-	print('')
-	print('*** Check for higgs ***')
-	maybe_download_higgs()
-
-	print('')
-	print('*** Check for wine ***')
-	maybe_download(DATA_WINE, 'https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/',
-				   'winequality-red.csv')
-	maybe_download(DATA_WINE, 'https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/',
-				   'winequality-white.csv')
+	print("Check for CIFAR-10")
+	maybe_download_cifar_10()
 
 
 ############################################################################################################################
@@ -751,4 +793,4 @@ def preprocess_data():
 
 if __name__ == '__main__':
 	maybe_download_all_data()
-	preprocess_data()
+	# preprocess_data()

@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torchattacks
 import os
+import wandb
 
 import base_spn as SPN
 from constants import *
@@ -15,6 +16,8 @@ from train_neural_models import test_neural
 
 ############################################################################
 
+
+wandb.init(project="my-test-project", entity="rohithpeddi")
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -82,11 +85,11 @@ def generate_adv_samples_transfer(test_x, test_labels, attack, attack_type, atta
 	adv_test = []
 	for inputs, targets in data_loader:
 		inputs, targets = inputs.to(device), targets.to(device)
-		inputs = inputs * 0.3081
-		inputs = inputs + 0.1307
+		# inputs = inputs * 0.3081
+		# inputs = inputs + 0.1307
 		adv_inputs = attack(inputs, targets)
-		adv_inputs = adv_inputs - 0.1307
-		adv_inputs = adv_inputs / 0.3081
+		# adv_inputs = adv_inputs - 0.1307
+		# adv_inputs = adv_inputs / 0.3081
 		adv_test.append(adv_inputs)
 
 		if len(adversaries) < 1:
@@ -115,9 +118,26 @@ def generate_adv_samples_transfer(test_x, test_labels, attack, attack_type, atta
 
 def test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type):
 	if attack_type == PGD:
-		attack_net = torchattacks.PGD(trained_net, eps=50/255, alpha=1 / 255, steps=40, random_start=True)
+		attack_net = torchattacks.PGD(trained_net, eps=16 / 255, alpha=8 / 255, steps=40, random_start=True)
 	elif attack_type == FGSM:
-		attack_net = torchattacks.FGSM(trained_net, eps=0.3)
+		attack_net = torchattacks.FGSM(trained_net, eps=0.1)
+	elif attack_type == CW:
+		attack_net = torchattacks.CW(trained_net, c=2, kappa=0, steps=1000, lr=0.01)
+	elif attack_type == PGDL2:
+		attack_net = torchattacks.PGDL2(trained_net, eps=1.0, alpha=0.2, steps=40, random_start=True)
+	elif attack_type == SQUARE:
+		attack_net = torchattacks.Square(trained_net, norm='Linf', n_queries=5000, n_restarts=1, eps=16 / 255,
+										 p_init=.8, seed=0, verbose=False, loss='margin', resc_schedule=True)
+	elif attack_type == DEEPFOOL:
+		attack_net = torchattacks.DeepFool(trained_net, steps=50, overshoot=0.02)
+	elif attack_type == SPARSEFOOL:
+		attack_net = torchattacks.SparseFool(trained_net, steps=20, lam=3, overshoot=0.02)
+	elif attack_type == FAB:
+		attack_net = torchattacks.FAB(trained_net, norm='Linf', steps=100, eps=None, n_restarts=1, alpha_max=0.1,
+									  eta=1.05,
+									  beta=0.9, verbose=False, seed=0, targeted=False, n_classes=10)
+	elif attack_type == ONE_PIXEL:
+		attack_net = torchattacks.OnePixel(trained_net, pixels=1, steps=75, popsize=400, inf_batch=128)
 
 	# Generating adversarial samples using neural network
 	adv_test_x_neural = generate_adv_samples_transfer(test_x, test_labels, attack_net, attack_type, attack_model=NET)
@@ -168,11 +188,32 @@ def test_mnist_continuous(args):
 	test_loader = DataLoader(TensorDataset(test_x, test_labels))
 	test_neural(trained_net, test_loader)
 
-	# 1. FGSM
-	test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=FGSM)
+	# # 1. FGSM
+	# test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=FGSM)
+	#
+	# # 2. PGD
+	# test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=PGD)
+	#
+	# # 3. CW
+	# test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=CW)
+	#
+	# # 4. RFGSM
+	# test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=PGDL2)
+	#
+	# # 5. SQUARE
+	# test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=SQUARE)
 
-	# 2. PGD
-	test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=PGD)
+	# # 6. DEEPFOOL
+	# test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=DEEPFOOL)
+
+	# 7. SPARSEFOOL
+	test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=SPARSEFOOL)
+	#
+	# # 8. FAB
+	# test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=FAB)
+
+	# 9. ONE PIXEL
+	test_attack(test_x, test_labels, spn_args, trained_spn, trained_net, attack_type=ONE_PIXEL)
 
 
 def test_fashion_mnist_continuous(args):
@@ -208,6 +249,40 @@ def test_fashion_mnist_continuous(args):
 	print('Test Metrics: {}'.format(json.dumps(metrics, indent=4)))
 
 
+def test_cifar_10_continuous(args):
+	dataset_name = args.dataset_name
+	run_id = args.run_id
+
+	train_x, valid_x, test_x, train_labels, valid_labels, test_labels = SPN.load_dataset(dataset_name)
+
+	spn_args = dict()
+	spn_args[N_FEATURES] = (CIFAR_10_CHANNELS, CIFAR_10_HEIGHT, CIFAR_10_WIDTH)
+	spn_args[OUT_CLASSES] = CIFAR_10_NUM_CLASSES
+	spn_args[BATCH_SIZE] = args.batch_size
+	spn_args[NUM_EPOCHS] = 100
+	spn_args[LEARNING_RATE] = 1e-3
+	spn_args[PATIENCE] = 30
+	spn_args[BATCHED_LEAVES] = 50
+	spn_args[SUM_CHANNELS] = 100
+	spn_args[SUM_DROPOUT] = 0.2
+	spn_args[IN_DROPOUT] = 0.2
+	spn_args[NUM_POOLING] = 2
+
+	dgcspn = SPN.load_spn(dataset_name, spn_args)
+
+	trained_spn = SPN.train_spn(run_id, dataset_name, dgcspn, train_x, valid_x, test_x, spn_args,
+								train_labels=train_labels,
+								valid_labels=valid_labels, test_labels=test_labels)
+
+	nll, metrics = SPN.test_spn(trained_spn, test_x, spn_args, test_labels)
+
+	evaluation_message(" Clean data statistics ")
+
+	print('Test NLL: {:.4f}'.format(nll))
+	metrics = json.loads(json.dumps(metrics), parse_float=lambda x: round(float(x), 6))
+	print('Test Metrics: {}'.format(json.dumps(metrics, indent=4)))
+
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('--run_id', type=int, default=27, help="")
@@ -216,5 +291,9 @@ if __name__ == '__main__':
 	ARGS = parser.parse_args()
 	print(ARGS)
 
-	test_mnist_continuous(ARGS)
-# test_fashion_mnist_continuous(ARGS)
+	if ARGS.dataset_name == MNIST:
+		test_mnist_continuous(ARGS)
+	elif ARGS.dataset_name == FASHION_MNIST:
+		test_fashion_mnist_continuous(ARGS)
+	elif ARGS.dataset_name == CIFAR_10:
+		test_cifar_10_continuous(ARGS)

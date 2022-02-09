@@ -56,7 +56,7 @@ def generate_adversarial_sample_batched(einet, inputs, perturbations, k=10):
 	return adv_sample_batched
 
 
-def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, combine=True, batched=False, k=10):
+def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, combine=True, batched=False, train_data=None):
 	adv_inputs = inputs.detach().clone()
 	original_N, num_dims = inputs.shape
 

@@ -1,5 +1,6 @@
 import os
 
+import random
 import numpy as np
 import torch
 from torch import optim
@@ -17,6 +18,7 @@ from utils import predict_labels_mnist
 from attacks.localsearch import attack as local_search_attack
 from attacks.localrestrictedsearch import attack as local_restricted_search_attack
 from attacks.sparsefool import attack as sparsefool_attack
+from attacks.weakermodel import attack as weaker_attack
 import torch.nn.functional as F
 
 ############################################################################
@@ -271,8 +273,8 @@ def train_einet(run_id, structure, dataset_name, einet, train_labels, train_x, v
 		if (is_adv and attack_type != NEURAL_NET) or (
 				attack_type == NEURAL_NET and epoch_count == 0):
 			print("Fetching adversarial data, training epoch {}".format(epoch_count))
-			train_dataset = fetch_adv_data(einet, dataset_name, train_x, train_labels, perturbations, attack_type,
-										   TRAIN_DATASET, combine=True)
+			train_dataset = fetch_adv_data(einet, dataset_name, train_x, train_x, train_labels, perturbations,
+										   attack_type, TRAIN_DATASET, combine=True)
 
 	save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type, perturbations)
 
@@ -321,7 +323,9 @@ def train_discriminative_einet(run_id, structure, dataset_name, einet, train_x, 
 	for epoch_count in range(NUM_EPOCHS):
 		train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
 		epoch_einet_train_discriminative(train_dataloader, einet, epoch_count, dataset_name, optimizer)
-		train_accuracy, valid_accuracy, test_accuracy = evaluate_accuracy(einet, train_x, train_labels, valid_x, valid_labels, test_x, test_labels, epoch_count=epoch_count)
+		train_accuracy, valid_accuracy, test_accuracy = evaluate_accuracy(einet, train_x, train_labels, valid_x,
+																		  valid_labels, test_x, test_labels,
+																		  epoch_count=epoch_count)
 		early_stopping(-valid_accuracy, epoch_count)
 		if early_stopping.should_stop:
 			print("Early Stopping... {}".format(early_stopping))
@@ -329,7 +333,7 @@ def train_discriminative_einet(run_id, structure, dataset_name, einet, train_x, 
 		if (is_adv and attack_type != NEURAL_NET) or (
 				attack_type == NEURAL_NET and epoch_count == 0):
 			print("Fetching adversarial data, training epoch {}".format(epoch_count))
-			train_dataset = fetch_adv_data(einet, dataset_name, train_x, None, epsilon, attack_type,
+			train_dataset = fetch_adv_data(einet, dataset_name, train_x, train_x, None, epsilon, attack_type,
 										   TRAIN_DATASET, combine=True)
 
 	save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type, epsilon)
@@ -344,9 +348,15 @@ def fetch_attack_method(attack_type):
 		return local_search_attack
 	elif attack_type == NEURAL_NET:
 		return sparsefool_attack
+	elif attack_type == WEAKER_MODEL:
+		return weaker_attack
 
 
-def fetch_adv_data(einet, dataset_name, inputs, labels, perturbations, attack_type, file_name=None, combine=True):
+def fetch_adv_data(einet, dataset_name, train_data, test_data, test_labels, perturbations, attack_type, file_name=None,
+				   combine=True):
+	if attack_type == AVERAGE:
+		return TensorDataset(test_data)
+
 	if attack_type == NEURAL_NET:
 		data_file_path = os.path.join(DATA_DEBD_DIRECTORY,
 									  "{}/augmented/sparsefool/{}/{}.pt".format(dataset_name, perturbations, file_name))
@@ -355,8 +365,8 @@ def fetch_adv_data(einet, dataset_name, inputs, labels, perturbations, attack_ty
 			return adv_data
 
 	attack = fetch_attack_method(attack_type)
-	adv_data = attack.generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, combine=combine,
-										   batched=True)
+	adv_data = attack.generate_adv_dataset(einet, dataset_name, test_data, test_labels, perturbations, combine=combine,
+										   batched=True, train_data=train_data)
 	adv_data = TensorDataset(adv_data)
 
 	if attack_type == NEURAL_NET:
@@ -375,18 +385,146 @@ def get_stats(likelihoods):
 	return mean_ll, stddev_ll
 
 
-def test_einet(dataset_name, trained_einet, data_einet, test_x, test_labels, perturbations, attack_type=None,
+def fetch_average_likelihoods_for_data(dataset_name, perturbations, trained_einet, test_x, average_repeat_size,
+									   is_conditional=False, marginalize_idx=None):
+	test_dataset = TensorDataset(test_x)
+	test_loader = DataLoader(test_dataset, shuffle=False, batch_size=1)
+	data_loader = tqdm(
+		test_loader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
+		desc='Evaluating average neighbourhood lls for {} with perturbations {}'.format(dataset_name, perturbations),
+		unit='batch'
+	)
+
+	likelihoods = []
+	for inputs in data_loader:
+		test_inputs = inputs[0].detach().clone()
+		batch_size, num_dims = test_inputs.shape
+		iteration_inputs = test_inputs
+
+		num_repetitions = min(num_dims, average_repeat_size)
+
+		for iteration in range(perturbations):
+			# Always retain the current element for comparison
+			dim_idx = random.sample(range(1, num_dims + 1), num_repetitions)
+			dim_idx.append(0)
+
+			identity = torch.cat((torch.zeros(num_dims, device=torch.device(device)).reshape((1, -1)),
+								  torch.eye(num_dims, device=torch.device(device))))
+
+			# Pick (k+1) nearest neighbours and use them for search
+			identity = identity[dim_idx, :]
+			identity = identity.repeat((batch_size, 1))
+
+			if iteration == 0:
+				perturbed_set = torch.repeat_interleave(iteration_inputs,
+														(num_repetitions + 1) * (
+															torch.ones(batch_size, device=torch.device(device)).int()),
+														dim=0)
+			perturbed_set = identity + perturbed_set - 2 * torch.mul(identity, perturbed_set)
+			iteration_inputs = perturbed_set
+			modified_test_inputs = perturbed_set
+
+		if is_conditional:
+			ll_sample = EinsumNetwork.fetch_conditional_likelihoods_for_data(trained_einet, modified_test_inputs,
+																			 marginalize_idx=marginalize_idx,
+																			 batch_size=average_repeat_size)
+		else:
+			ll_sample = EinsumNetwork.fetch_likelihoods_for_data(trained_einet, modified_test_inputs,
+																 batch_size=average_repeat_size)
+		likelihoods.append(ll_sample.mean())
+
+	return torch.tensor(likelihoods)
+
+
+def test_einet(dataset_name, trained_einet, data_einet, train_x, test_x, test_labels, perturbations, attack_type=None,
 			   batch_size=1, is_adv=False):
 	trained_einet.eval()
 	if is_adv:
-		test_x = fetch_adv_data(data_einet, dataset_name, test_x, test_labels, perturbations, attack_type, TEST_DATASET,
-								combine=False).tensors[0]
-	test_lls = EinsumNetwork.fetch_likelihoods_for_data(trained_einet, test_x, batch_size=batch_size)
+		test_x = fetch_adv_data(data_einet, dataset_name, train_x, test_x, test_labels, perturbations, attack_type,
+								TEST_DATASET, combine=False).tensors[0]
+
+	if attack_type == AVERAGE:
+		test_lls = fetch_average_likelihoods_for_data(dataset_name, perturbations, trained_einet, test_x,
+													  average_repeat_size=DEFAULT_AVERAGE_REPEAT_SIZE)
+	else:
+		test_lls = EinsumNetwork.fetch_likelihoods_for_data(trained_einet, test_x, batch_size=batch_size)
+
 	mean_ll, stddev_ll = get_stats(test_lls)
 	return mean_ll, stddev_ll, test_x
 
 
-def test_conditional_einet(dataset_name, einet, evidence_percentage, test_x, batch_size=DEFAULT_EVAL_BATCH_SIZE):
+def fetch_average_conditional_likelihoods_for_data(dataset_name, trained_einet, test_x,
+												   average_repeat_size=DEFAULT_AVERAGE_REPEAT_SIZE):
+	test_dataset = TensorDataset(test_x)
+	test_loader = DataLoader(test_dataset, shuffle=False, batch_size=1)
+	data_loader = tqdm(
+		test_loader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
+		desc='Evaluating average neighbourhood conditional lls for {}'.format(dataset_name),
+		unit='batch'
+	)
+
+	likelihoods = dict()
+	for inputs in data_loader:
+		test_inputs = inputs[0].detach().clone()
+		batch_size, num_dims = test_inputs.shape
+		iteration_inputs = test_inputs
+
+		num_repetitions = min(num_dims, average_repeat_size)
+
+		for perturbation in range(1, 6):
+			# Always retain the current element for comparison
+			dim_idx = random.sample(range(1, num_dims + 1), num_repetitions)
+			dim_idx.append(0)
+
+			identity = torch.cat((torch.zeros(num_dims, device=torch.device(device)).reshape((1, -1)),
+								  torch.eye(num_dims, device=torch.device(device))))
+
+			# Pick (k+1) nearest neighbours and use them for search
+			identity = identity[dim_idx, :]
+			identity = identity.repeat((batch_size, 1))
+
+			if perturbation == 1:
+				perturbed_set = torch.repeat_interleave(iteration_inputs,
+														(num_repetitions + 1) * (
+															torch.ones(batch_size, device=torch.device(device)).int()),
+														dim=0)
+			perturbed_set = identity + perturbed_set - 2 * torch.mul(identity, perturbed_set)
+			iteration_inputs = perturbed_set
+
+			if perturbation in PERTURBATIONS:
+				for evidence_percentage in EVIDENCE_PERCENTAGES:
+					marginalize_idx = list(np.arange(int(num_dims * evidence_percentage), num_dims))
+					ll_sample = EinsumNetwork.fetch_conditional_likelihoods_for_data(trained_einet, iteration_inputs,
+																					 marginalize_idx=marginalize_idx,
+																					 batch_size=average_repeat_size)
+					if perturbation not in likelihoods:
+						likelihoods[perturbation] = dict()
+
+					if evidence_percentage not in likelihoods[perturbation]:
+						likelihoods[perturbation][evidence_percentage] = []
+
+					(likelihoods[perturbation][evidence_percentage]).append(ll_sample.mean())
+
+	av_mean_dict = dict()
+	av_std_dict = dict()
+
+	for perturbation in [1, 3, 5]:
+		if perturbation not in av_mean_dict:
+			av_mean_dict[perturbation] = dict()
+			av_std_dict[perturbation] = dict()
+
+		for evidence_percentage in EVIDENCE_PERCENTAGES:
+			lls = torch.tensor(likelihoods[perturbation][evidence_percentage])
+			mean_ll, stddev_ll = get_stats(lls)
+
+			av_mean_dict[perturbation][evidence_percentage] = mean_ll
+			av_std_dict[perturbation][evidence_percentage] = stddev_ll
+
+	return av_mean_dict, av_std_dict
+
+
+def test_conditional_einet(test_attack_type, perturbations, dataset_name, einet, evidence_percentage, test_x,
+						   batch_size=DEFAULT_EVAL_BATCH_SIZE):
 	marginalize_idx = None
 	if dataset_name in DEBD_DATASETS:
 		test_N, num_dims = test_x.shape
@@ -396,6 +534,7 @@ def test_conditional_einet(dataset_name, einet, evidence_percentage, test_x, bat
 		marginalize_idx = list(image_scope[0:round(MNIST_HEIGHT * (1 - evidence_percentage)), :].reshape(-1))
 
 	einet.eval()
+
 	test_lls = EinsumNetwork.fetch_conditional_likelihoods_for_data(einet, test_x, marginalize_idx=marginalize_idx,
 																	batch_size=batch_size)
 	mean_ll, stddev_ll = get_stats(test_lls)
