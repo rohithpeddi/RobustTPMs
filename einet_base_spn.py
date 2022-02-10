@@ -290,10 +290,13 @@ def fetch_attack_method(attack_type):
 
 
 def fetch_adv_data(einet, dataset_name, train_data, test_data, test_labels, perturbations, attack_type, file_name=None,
-				   combine=True):
+				   combine=False):
 	attack = fetch_attack_method(attack_type)
 	adv_data = attack.generate_adv_dataset(einet, dataset_name, test_data, test_labels, perturbations, combine=combine,
 										   batched=True, train_data=train_data)
+
+	print("Fetched adversarial examples : {}/{}".format(adv_data.shape[0], test_data.shape[0]))
+
 	adv_data = TensorDataset(adv_data)
 
 	return adv_data

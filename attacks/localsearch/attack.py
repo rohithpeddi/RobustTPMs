@@ -69,7 +69,7 @@ def generate_adversarial_sample(einet, inputs, perturbations):
 	return adv_sample
 
 
-def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, combine=True, batched=False, train_data=None):
+def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, combine=False, batched=False, train_data=None):
 	adv_inputs = inputs.detach().clone()
 	original_N, num_dims = inputs.shape
 
@@ -78,7 +78,7 @@ def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, com
 	else:
 		batch_size = max(1, int(900 / num_dims)) if batched else 1
 
-	dataset = TensorDataset(inputs)
+	dataset = TensorDataset(adv_inputs)
 	data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 	data_loader = tqdm(

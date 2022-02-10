@@ -68,7 +68,7 @@ def fetch_bags_of_clts(train_x):
 	return clt_bag
 
 
-def generate_adv_dataset(einet, dataset_name, test_data, test_labels, perturbations, combine=True, batched=False,
+def generate_adv_dataset(einet, dataset_name, test_data, test_labels, perturbations, combine=False, batched=False,
 						 train_data=None):
 	adv_inputs = test_data.detach().clone()
 
