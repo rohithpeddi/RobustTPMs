@@ -264,10 +264,11 @@ def train_einet(run_id, structure, dataset_name, einet, train_labels, train_x, v
 		train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
 		epoch_einet_train(train_dataloader, einet, epoch_count, dataset_name, weight=1)
 		train_ll, valid_ll, test_ll = evaluate_lls(einet, train_x, valid_x, test_x, epoch_count=epoch_count)
-		early_stopping(-valid_ll, epoch_count)
-		if early_stopping.should_stop and epoch_count > 5:
-			print("Early Stopping... {}".format(early_stopping))
-			break
+		if epoch_count > 1:
+			early_stopping(-valid_ll, epoch_count)
+			if early_stopping.should_stop and epoch_count > 5:
+				print("Early Stopping... {}".format(early_stopping))
+				break
 		if is_adv:
 			print("Fetching adversarial data, training epoch {}".format(epoch_count))
 			train_dataset = fetch_adv_data(einet, dataset_name, train_x, train_x, train_labels, perturbations,
