@@ -265,7 +265,7 @@ def train_einet(run_id, structure, dataset_name, einet, train_labels, train_x, v
 		epoch_einet_train(train_dataloader, einet, epoch_count, dataset_name, weight=1)
 		train_ll, valid_ll, test_ll = evaluate_lls(einet, train_x, valid_x, test_x, epoch_count=epoch_count)
 		early_stopping(-valid_ll, epoch_count)
-		if early_stopping.should_stop:
+		if early_stopping.should_stop and epoch_count > 5:
 			print("Early Stopping... {}".format(early_stopping))
 			break
 		if is_adv:
