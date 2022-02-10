@@ -1,25 +1,23 @@
 import os
-
 import random
+
 import numpy as np
 import torch
-from torch import optim
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
 
 import datasets
 from EinsumNetwork import EinsumNetwork, Graph
 from EinsumNetwork.ExponentialFamilyArray import NormalArray, CategoricalArray, BinomialArray
+from attacks.localrestrictedsearch import attack as local_restricted_search_attack
+from attacks.localsearch import attack as local_search_attack
+from attacks.sparsefool import attack as sparsefool_attack
+from attacks.weakermodel import attack as weaker_attack
 from constants import *
 from deeprob.torch.callbacks import EarlyStopping
 from train_neural_models import generate_debd_labels
 from utils import mkdir_p
 from utils import predict_labels_mnist
-from attacks.localsearch import attack as local_search_attack
-from attacks.localrestrictedsearch import attack as local_restricted_search_attack
-from attacks.sparsefool import attack as sparsefool_attack
-from attacks.weakermodel import attack as weaker_attack
-import torch.nn.functional as F
 
 ############################################################################
 
@@ -270,73 +268,12 @@ def train_einet(run_id, structure, dataset_name, einet, train_labels, train_x, v
 		if early_stopping.should_stop:
 			print("Early Stopping... {}".format(early_stopping))
 			break
-		if (is_adv and attack_type != NEURAL_NET) or (
-				attack_type == NEURAL_NET and epoch_count == 0):
+		if is_adv:
 			print("Fetching adversarial data, training epoch {}".format(epoch_count))
 			train_dataset = fetch_adv_data(einet, dataset_name, train_x, train_x, train_labels, perturbations,
-										   attack_type, TRAIN_DATASET, combine=True)
+										   attack_type, TRAIN_DATASET, combine=False)
 
 	save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type, perturbations)
-
-	return einet
-
-
-def epoch_einet_train_discriminative(train_dataloader, einet, epoch, dataset_name, optimizer):
-	train_dataloader = tqdm(
-		train_dataloader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
-		desc='Training epoch : {}, for dataset : {}'.format(epoch, dataset_name),
-		unit='batch'
-	)
-	einet.train()
-	for inputs, labels in train_dataloader:
-		optimizer.zero_grad()
-		outputs = einet.forward(inputs)
-		logits = torch.log_softmax(outputs, dim=1)
-		loss = F.nll_loss(logits, labels)
-		loss.backward()
-		optimizer.step()
-
-
-def evaluate_accuracy(einet, train_x, train_labels, valid_x, valid_labels, test_x, test_labels, epoch_count=0):
-	# Evaluate
-	einet.eval()
-	train_accuracy = EinsumNetwork.eval_accuracy_batched(einet, train_x, train_labels, batch_size=EVAL_BATCH_SIZE)
-	valid_accuracy = EinsumNetwork.eval_accuracy_batched(einet, valid_x, valid_labels, batch_size=EVAL_BATCH_SIZE)
-	test_accuracy = EinsumNetwork.eval_accuracy_batched(einet, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
-	print("[{}] train accuracy {} valid accuracy {} test accuracy {}".format(epoch_count, train_accuracy,
-																			 valid_accuracy, test_accuracy))
-	return train_accuracy, valid_accuracy, test_accuracy
-
-
-def train_discriminative_einet(run_id, structure, dataset_name, einet, train_x, train_labels, valid_x, valid_labels,
-							   test_x, test_labels, einet_args, epsilon,
-							   attack_type=CLEAN, batch_size=DEFAULT_TRAIN_BATCH_SIZE, is_adv=False):
-	patience = 1 if is_adv else DEFAULT_EINET_PATIENCE
-
-	early_stopping = EarlyStopping(einet, patience=patience, filepath=EARLY_STOPPING_FILE, delta=EARLY_STOPPING_DELTA)
-
-	train_dataset = TensorDataset(train_x, train_labels)
-	NUM_EPOCHS = MAX_NUM_EPOCHS
-	# NUM_EPOCHS = 1
-
-	optimizer = optim.SGD(einet.parameters(), lr=0.01, momentum=0.9)
-	for epoch_count in range(NUM_EPOCHS):
-		train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True)
-		epoch_einet_train_discriminative(train_dataloader, einet, epoch_count, dataset_name, optimizer)
-		train_accuracy, valid_accuracy, test_accuracy = evaluate_accuracy(einet, train_x, train_labels, valid_x,
-																		  valid_labels, test_x, test_labels,
-																		  epoch_count=epoch_count)
-		early_stopping(-valid_accuracy, epoch_count)
-		if early_stopping.should_stop:
-			print("Early Stopping... {}".format(early_stopping))
-			break
-		if (is_adv and attack_type != NEURAL_NET) or (
-				attack_type == NEURAL_NET and epoch_count == 0):
-			print("Fetching adversarial data, training epoch {}".format(epoch_count))
-			train_dataset = fetch_adv_data(einet, dataset_name, train_x, train_x, None, epsilon, attack_type,
-										   TRAIN_DATASET, combine=True)
-
-	save_model(run_id, einet, dataset_name, structure, einet_args, is_adv, attack_type, epsilon)
 
 	return einet
 
@@ -354,27 +291,10 @@ def fetch_attack_method(attack_type):
 
 def fetch_adv_data(einet, dataset_name, train_data, test_data, test_labels, perturbations, attack_type, file_name=None,
 				   combine=True):
-	if attack_type == AVERAGE:
-		return TensorDataset(test_data)
-
-	if attack_type == NEURAL_NET:
-		data_file_path = os.path.join(DATA_DEBD_DIRECTORY,
-									  "{}/augmented/sparsefool/{}/{}.pt".format(dataset_name, perturbations, file_name))
-		if os.path.exists(data_file_path):
-			adv_data = torch.load(data_file_path)
-			return adv_data
-
 	attack = fetch_attack_method(attack_type)
 	adv_data = attack.generate_adv_dataset(einet, dataset_name, test_data, test_labels, perturbations, combine=combine,
 										   batched=True, train_data=train_data)
 	adv_data = TensorDataset(adv_data)
-
-	if attack_type == NEURAL_NET:
-		data_file_directory = os.path.join(DATA_DEBD_DIRECTORY,
-										   "{}/augmented/sparsefool/{}".format(dataset_name, perturbations))
-		mkdir_p(data_file_directory)
-		data_file_path = os.path.join(data_file_directory, "{}.pt".format(file_name))
-		torch.save(adv_data, data_file_path)
 
 	return adv_data
 
@@ -385,17 +305,17 @@ def get_stats(likelihoods):
 	return mean_ll, stddev_ll
 
 
-def fetch_average_likelihoods_for_data(dataset_name, perturbations, trained_einet, test_x, average_repeat_size,
-									   is_conditional=False, marginalize_idx=None):
+def fetch_average_likelihoods_for_data(dataset_name, trained_einet, test_x,
+									   average_repeat_size=DEFAULT_AVERAGE_REPEAT_SIZE):
 	test_dataset = TensorDataset(test_x)
 	test_loader = DataLoader(test_dataset, shuffle=False, batch_size=1)
 	data_loader = tqdm(
 		test_loader, leave=False, bar_format='{l_bar}{bar:24}{r_bar}',
-		desc='Evaluating average neighbourhood lls for {} with perturbations {}'.format(dataset_name, perturbations),
+		desc='Evaluating average neighbourhood lls for {}'.format(dataset_name),
 		unit='batch'
 	)
 
-	likelihoods = []
+	likelihoods = dict()
 	for inputs in data_loader:
 		test_inputs = inputs[0].detach().clone()
 		batch_size, num_dims = test_inputs.shape
@@ -403,7 +323,7 @@ def fetch_average_likelihoods_for_data(dataset_name, perturbations, trained_eine
 
 		num_repetitions = min(num_dims, average_repeat_size)
 
-		for iteration in range(perturbations):
+		for perturbation in range(1, 6):
 			# Always retain the current element for comparison
 			dim_idx = random.sample(range(1, num_dims + 1), num_repetitions)
 			dim_idx.append(0)
@@ -415,25 +335,35 @@ def fetch_average_likelihoods_for_data(dataset_name, perturbations, trained_eine
 			identity = identity[dim_idx, :]
 			identity = identity.repeat((batch_size, 1))
 
-			if iteration == 0:
+			if perturbation == 1:
 				perturbed_set = torch.repeat_interleave(iteration_inputs,
 														(num_repetitions + 1) * (
-															torch.ones(batch_size, device=torch.device(device)).int()),
+															torch.ones(batch_size,
+																	   device=torch.device(device)).int()),
 														dim=0)
 			perturbed_set = identity + perturbed_set - 2 * torch.mul(identity, perturbed_set)
 			iteration_inputs = perturbed_set
-			modified_test_inputs = perturbed_set
 
-		if is_conditional:
-			ll_sample = EinsumNetwork.fetch_conditional_likelihoods_for_data(trained_einet, modified_test_inputs,
-																			 marginalize_idx=marginalize_idx,
-																			 batch_size=average_repeat_size)
-		else:
-			ll_sample = EinsumNetwork.fetch_likelihoods_for_data(trained_einet, modified_test_inputs,
-																 batch_size=average_repeat_size)
-		likelihoods.append(ll_sample.mean())
+			if perturbation in PERTURBATIONS:
+				ll_sample = EinsumNetwork.fetch_likelihoods_for_data(trained_einet, iteration_inputs,
+																	 batch_size=average_repeat_size)
 
-	return torch.tensor(likelihoods)
+				if perturbation not in likelihoods:
+					likelihoods[perturbation] = []
+
+				(likelihoods[perturbation]).append(ll_sample.mean())
+
+	av_mean_dict = dict()
+	av_std_dict = dict()
+
+	for perturbation in [1, 3, 5]:
+		lls = torch.tensor(likelihoods[perturbation])
+		mean_ll, stddev_ll = get_stats(lls)
+
+		av_mean_dict[perturbation] = mean_ll
+		av_std_dict[perturbation] = stddev_ll
+
+	return av_mean_dict, av_std_dict
 
 
 def test_einet(dataset_name, trained_einet, data_einet, train_x, test_x, test_labels, perturbations, attack_type=None,
@@ -443,11 +373,7 @@ def test_einet(dataset_name, trained_einet, data_einet, train_x, test_x, test_la
 		test_x = fetch_adv_data(data_einet, dataset_name, train_x, test_x, test_labels, perturbations, attack_type,
 								TEST_DATASET, combine=False).tensors[0]
 
-	if attack_type == AVERAGE:
-		test_lls = fetch_average_likelihoods_for_data(dataset_name, perturbations, trained_einet, test_x,
-													  average_repeat_size=DEFAULT_AVERAGE_REPEAT_SIZE)
-	else:
-		test_lls = EinsumNetwork.fetch_likelihoods_for_data(trained_einet, test_x, batch_size=batch_size)
+	test_lls = EinsumNetwork.fetch_likelihoods_for_data(trained_einet, test_x, batch_size=batch_size)
 
 	mean_ll, stddev_ll = get_stats(test_lls)
 	return mean_ll, stddev_ll, test_x

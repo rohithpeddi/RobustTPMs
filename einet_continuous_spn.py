@@ -59,7 +59,7 @@ def test_mnist_continuous(args):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-	parser.add_argument('--run_id', type=int, default=27, help="")
+	parser.add_argument('--run_id', type=int, default=91, help="")
 	parser.add_argument('--dataset_name', type=str, required=True, help="dataset name")
 	ARGS = parser.parse_args()
 	print(ARGS)

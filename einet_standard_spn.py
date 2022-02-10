@@ -8,7 +8,8 @@ from utils import pretty_print_dictionary, dictionary_to_file
 ############################################################################
 
 
-run1 = wandb.init(project="ROSPN", entity="rohithpeddi")
+run1 = wandb.init(project="ROSPN-O", entity="utd-ml-pgm")
+# run1 = wandb.init(project="ROSPN", entity="rohithpeddi")
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -24,7 +25,7 @@ wandb_tables = dict()
 ############################################################################
 
 def evaluation_message(message):
-	print("-----------------------------------------------------------------------------")
+	print("\n")
 	print("-----------------------------------------------------------------------------")
 	print("#" + message)
 	print("-----------------------------------------------------------------------------")
@@ -158,14 +159,14 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 													  train_x, valid_x, test_x, einet_args, perturbations, CLEAN,
 													  batch_size=einet_args[BATCH_SIZE], is_adv=False)
 
-			einet = SPN.load_einet(run_id, structure, dataset_name, einet_args, graph)
+			adv_einet = SPN.load_einet(run_id, structure, dataset_name, einet_args, graph)
 			trained_adv_einet = trained_clean_einet
 			if is_adv:
 				trained_adv_einet = SPN.load_pretrained_einet(run_id, structure, dataset_name, einet_args,
 															  train_attack_type, perturbations)
 				if trained_adv_einet is None:
 					evaluation_message("Training adversarial einet with attack type {}".format(train_attack_type))
-					trained_adv_einet = SPN.train_einet(run_id, structure, dataset_name, einet, train_labels, train_x,
+					trained_adv_einet = SPN.train_einet(run_id, structure, dataset_name, adv_einet, train_labels, train_x,
 														valid_x, test_x, einet_args, perturbations, train_attack_type,
 														batch_size=einet_args[BATCH_SIZE], is_adv=True)
 				else:
@@ -173,6 +174,11 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 
 			# ------------------------------------------------------------------------------------------
 			# ------  TESTING AREA ------
+
+			# ------  AVERAGE ATTACK AREA ------
+
+			av_mean_ll_dict, av_std_ll_dict = SPN.fetch_average_likelihoods_for_data(dataset_name, trained_adv_einet,
+																					 test_x)
 
 			def attack_test_einet(dataset_name, trained_adv_einet, trained_clean_einet, train_x, test_x, test_labels,
 								  perturbations, attack_type, batch_size, is_adv):
@@ -239,26 +245,6 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 																	   attack_type=RESTRICTED_LOCAL_SEARCH,
 																	   batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
 
-			# ------  AVERAGE ATTACK AREA ------
-
-			# 8. Average attack - 1 Test Set
-			av1_mean_ll, av1_std_ll, av1_test_x = attack_test_einet(dataset_name, trained_adv_einet,
-																	trained_clean_einet, train_x, test_x, test_labels,
-																	perturbations=1, attack_type=AVERAGE,
-																	batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
-
-			# 9. Average attack - 3 Test Set
-			av3_mean_ll, av3_std_ll, av3_test_x = attack_test_einet(dataset_name, trained_adv_einet,
-																	trained_clean_einet, train_x, test_x, test_labels,
-																	perturbations=3, attack_type=AVERAGE,
-																	batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
-
-			# 10. Average attack - 5 Test Set
-			av5_mean_ll, av5_std_ll, av5_test_x = attack_test_einet(dataset_name, trained_adv_einet,
-																	trained_clean_einet, train_x, test_x, test_labels,
-																	perturbations=5, attack_type=AVERAGE,
-																	batch_size=DEFAULT_EVAL_BATCH_SIZE, is_adv=True)
-
 			# ------------- WEAKER MODEL ATTACK --------
 
 			# 11. Weaker model attack - 1 Test Set
@@ -284,7 +270,8 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 			ll_table.add_data(train_attack_type, perturbations, standard_mean_ll, standard_std_ll,
 							  ls1_mean_ll, ls1_std_ll, ls3_mean_ll, ls3_std_ll, ls5_mean_ll, ls5_std_ll,
 							  rls1_mean_ll, rls1_std_ll, rls3_mean_ll, rls3_std_ll, rls5_mean_ll, rls5_std_ll,
-							  av1_mean_ll, av1_std_ll, av3_mean_ll, av3_std_ll, av5_mean_ll, av5_std_ll,
+							  av_mean_ll_dict[1], av_std_ll_dict[1], av_mean_ll_dict[3], av_std_ll_dict[3],
+							  av_mean_ll_dict[5], av_std_ll_dict[5],
 							  w1_mean_ll, w1_std_ll, w3_mean_ll, w3_std_ll, w5_mean_ll, w5_std_ll)
 
 			# ------------------------------------------------------------------------------------------------
@@ -310,7 +297,9 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 			# ---------- AVERAGE ATTACK AREA ------
 
 			# 8. Average attack dictionary
-			av_mean_dict, av_std_dict = SPN.fetch_average_conditional_likelihoods_for_data(dataset_name, trained_adv_einet, test_x)
+			av_mean_cll_dict, av_std_cll_dict = SPN.fetch_average_conditional_likelihoods_for_data(dataset_name,
+																								   trained_adv_einet,
+																								   test_x)
 
 			for evidence_percentage in EVIDENCE_PERCENTAGES:
 				cll_table = cll_tables[evidence_percentage]
@@ -390,16 +379,17 @@ def test_standard_spn_discrete(run_id, specific_datasets=None, is_adv=False, tra
 								   ls1_mean_cll, ls1_std_cll, ls3_mean_cll, ls3_std_cll, ls5_mean_cll, ls5_std_cll,
 								   rls1_mean_cll, rls1_std_cll, rls3_mean_cll, rls3_std_cll, rls5_mean_cll,
 								   rls5_std_cll,
-								   av_mean_dict[1][evidence_percentage], av_std_dict[1][evidence_percentage],
-								   av_mean_dict[3][evidence_percentage], av_std_dict[3][evidence_percentage],
-								   av_mean_dict[5][evidence_percentage], av_std_dict[5][evidence_percentage],
+								   av_mean_cll_dict[1][evidence_percentage], av_std_cll_dict[1][evidence_percentage],
+								   av_mean_cll_dict[3][evidence_percentage], av_std_cll_dict[3][evidence_percentage],
+								   av_mean_cll_dict[5][evidence_percentage], av_std_cll_dict[5][evidence_percentage],
 								   w1_mean_cll, w1_std_cll, w3_mean_cll, w3_std_cll, w5_mean_cll, w5_std_cll)
 
 				dataset_distribution_results[str(evidence_percentage)] = dataset_distribution_evidence_results
 				dataset_results[str(einet_args[NUM_INPUT_DISTRIBUTIONS])] = dataset_distribution_results
 
 		results[dataset_name] = dataset_results
-		dictionary_to_file(dataset_name, dataset_results, run_id, train_attack_type, perturbations, is_adv=is_adv, is_einet=True)
+		dictionary_to_file(dataset_name, dataset_results, run_id, train_attack_type, perturbations, is_adv=is_adv,
+						   is_einet=True)
 		pretty_print_dictionary(dataset_results)
 	pretty_print_dictionary(results)
 
@@ -417,7 +407,7 @@ if __name__ == '__main__':
 				evaluation_message(
 					"Logging values for {}, perturbation {}, train attack type {}".format(dataset_name, perturbation,
 																						  train_attack_type))
-				test_standard_spn_discrete(run_id=261, specific_datasets=dataset_name, is_adv=True,
+				test_standard_spn_discrete(run_id=102, specific_datasets=dataset_name, is_adv=True,
 										   train_attack_type=train_attack_type, perturbations=perturbation)
 
 		dataset_wandb_tables = fetch_wandb_table(dataset_name)

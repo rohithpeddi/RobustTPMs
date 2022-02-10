@@ -126,10 +126,11 @@ RATSPN_DEBD_RESULTS_DIRECTORY = "results/ratspn/DEBD"
 RATSPN_BINARY_MNIST_RESULTS_DIRECTORY = "results/ratspn/binary_mnist"
 RATSPN_MNIST_RESULTS_DIRECTORY = "results/ratspn/mnist"
 
-# DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd',]
+# DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
+# 				 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star', 'dna', 'kosarek']
 
-DEBD_DATASETS = ['plants', 'baudio',
-				 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star', 'dna', 'kosarek', 'msweb', 'book',
+DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
+ 				 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star', 'dna', 'kosarek', 'msweb', 'book',
 				 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc']
 
 SMALL_VARIABLE_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
@@ -137,7 +138,7 @@ SMALL_VARIABLE_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
 
 LARGE_VARIABLE_DATASETS = ['dna', 'kosarek', 'msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
-CONTINUOUS_DATASETS = [MNIST]
+CONTINUOUS_DATASETS = [MNIST, FASHION_MNIST]
 DISCRETE_DATASETS = ['plants', 'nltcs', 'msnbc', 'kdd', 'baudio',
 					 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star',
 					 'dna', 'kosarek', 'msweb', 'book', 'tmovie',
