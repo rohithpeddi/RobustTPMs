@@ -138,12 +138,12 @@ def test_standard_spn_discrete(specific_datasets=None):
 				SPN.generate_samples(trained_ratspn, dataset_name, ratspn_args)
 
 				evaluation_message("Generating conditional samples")
-				SPN.generate_conditional_samples(trained_ratspn, dataset_name, ratspn_args, test_x)
+				SPN.generate_conditional_samples(132, trained_ratspn, dataset_name, ratspn_args, test_x)
 
 			for evidence_percentage in EVIDENCE_PERCENTAGES:
 				dataset_distribution_evidence_results = dict()
-				mean_ll, std_ll = SPN.test_conditional_likelihood(trained_ratspn, dataset_name, evidence_percentage,
-																  ratspn_args, test_x)
+				mean_ll, std_ll = SPN.test_conditional_spn(trained_ratspn, dataset_name, evidence_percentage,
+														   ratspn_args, test_x)
 				evaluation_message(
 					"Clean Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll,
 																						std_ll))

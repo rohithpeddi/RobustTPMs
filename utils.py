@@ -50,7 +50,7 @@ def to_torch_tensor(train_x, valid_x, test_x, train_labels, valid_labels, test_l
 
 
 def predict_labels_mnist(data):
-	net = MNet().to(device)
+	net = MNet(MNIST_NUM_CLASSES).to(device)
 	net.load_state_dict(torch.load(os.path.join(MNIST_NET_DIRECTORY, "mnist_cnn.pt")))
 	net.eval()
 

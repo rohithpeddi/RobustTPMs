@@ -30,32 +30,35 @@ class FGSM(Attack):
         self.eps = eps
         self._supported_mode = ['default', 'targeted']
 
-    def forward(self, images, labels):
+    def forward(self, images, labels=None):
         r"""
         Overridden.
         """
         images = images.clone().detach().to(self.device)
-        labels = labels.clone().detach().to(self.device)
+        if labels is not None:
+            labels = labels.clone().detach().to(self.device)
 
         if self._targeted:
             target_labels = self._get_target_label(images, labels)
 
-        loss = nn.CrossEntropyLoss()
+        # loss = nn.CrossEntropyLoss()
 
         images.requires_grad = True
         outputs = self.model(images)
 
-        # Calculate loss
-        if self._targeted:
-            cost = -loss(outputs, target_labels)
-        else:
-            cost = loss(outputs, labels)
+        # # Calculate loss
+        # if self._targeted:
+        #     cost = -loss(outputs, target_labels)
+        # else:
+        #     cost = loss(outputs, labels)
+
+        cost = self.model.loss(outputs)
 
         # Update adversarial images
         grad = torch.autograd.grad(cost, images,
                                    retain_graph=False, create_graph=False)[0]
 
         adv_images = images + self.eps*grad.sign()
-        adv_images = torch.clamp(adv_images, min=0, max=1).detach()
+        adv_images = torch.clamp(adv_images, min=-(0.1307/0.3081), max=((1-0.1307)/0.3081)).detach()
 
         return adv_images

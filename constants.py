@@ -1,6 +1,7 @@
 MNIST = "mnist"
 FASHION_MNIST = "fashion_mnist"
 BINARY_MNIST = "binary_mnist"
+BINARY_FASHION_MNIST = "binary_fashion_mnist"
 IMDB = 'imdb'
 WINE = 'wine'
 CIFAR_10 = "cifar_10"
@@ -11,8 +12,11 @@ DEPTH = 'depth'  # The region graph's depth
 NUM_REPETITIONS = 'num_repetitions'  # The region graph's number of repetitions
 NUM_INPUT_DISTRIBUTIONS = 'num_input_distributions'
 NUM_SUMS = "num_sums"
+
+TRAIN_SETTING = "train_setting"
 GENERATIVE = 'generative'
 DISCRIMINATIVE = 'discriminative'
+
 CONDITIONAL = 'conditional'
 BATCH_SIZE = 'batch_size'
 NUM_CLASSES = 'num_classes'
@@ -25,6 +29,12 @@ SUM_CHANNELS = 'sum_channels'
 NUM_POOLING = 'num_pooling'
 IN_DROPOUT = 'in_dropout'
 SUM_DROPOUT = 'sum_dropout'
+
+ATTACK_TYPE = "attack_type"
+MODEL_TYPE = "model_type"
+DGCSPN = "dgcspn"
+GAUSSIAN_RATSPN = "gaussian_ratspn"
+BERNOULLI_RATSPN = "bernoulli_ratspn"
 
 LOGLIKELIHOOD_TABLE = "ll_table"
 CONDITIONAL_LOGLIKELIHOOD_TABLES = "cll_tables"
@@ -57,6 +67,7 @@ MNIST_MODEL_DIRECTORY = "checkpoints/models/mnist"
 CIFAR_10_MODEL_DIRECTORY = "checkpoints/models/cifar_10"
 DEBD_MODEL_DIRECTORY = "checkpoints/models/DEBD"
 BINARY_MNIST_MODEL_DIRECTORY = "checkpoints/models/binary_mnist"
+FASHION_MNIST_MODEL_DIRECTORY = "checkpoints/models/fashion_mnist"
 
 SAMPLES_DIRECTORY = "samples"
 CONDITIONAL_SAMPLES_DIRECTORY = "conditional_samples"
@@ -110,7 +121,7 @@ EINET_MAX_NUM_EPOCHS = 30
 MAX_ITER = 50
 LAMBDA = 3.
 DEFAULT_PATIENCE = 30
-MNIST_NET_DIRECTORY = "checkpoints/mnist"
+MNIST_NET_DIRECTORY = "checkpoints/neural/mnist"
 DEFAULT_SPARSEFOOL_ATTACK_BATCH_SIZE = 1
 
 DATA_MNIST_ADV_SPARSEFOOL = "data/MNIST/augmented/sparsefool"
@@ -126,10 +137,8 @@ RATSPN_DEBD_RESULTS_DIRECTORY = "results/ratspn/DEBD"
 RATSPN_BINARY_MNIST_RESULTS_DIRECTORY = "results/ratspn/binary_mnist"
 RATSPN_MNIST_RESULTS_DIRECTORY = "results/ratspn/mnist"
 
-# DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
-# 				 'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star', 'dna', 'kosarek']
-
-DEBD_DATASETS = ['accidents', 'tretail', 'pumsb_star', 'dna', 'kosarek', 'msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
+DEBD_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'jester', 'baudio',
+						    'bnetflix', 'accidents', 'tretail', 'pumsb_star', 'dna', 'kosarek', 'msweb', 'book', 'tmovie', 'cwebkb', 'cr52', 'c20ng', 'bbc', 'ad']
 
 SMALL_VARIABLE_DATASETS = ['nltcs', 'msnbc', 'kdd', 'plants', 'baudio',
 						   'jester', 'bnetflix', 'accidents', 'tretail', 'pumsb_star']
@@ -198,10 +207,12 @@ DEFAULT_ONLINE_EM_FREQUENCY = 1
 
 MAX_NUM_EPOCHS = 400
 
-EARLY_STOPPING_DELTA = 1e-3
+EARLY_STOPPING_DELTA = 1e-4
 DEFAULT_EINET_PATIENCE = 1
+DEFAULT_SPN_PATIENCE = 30
 EARLY_STOPPING_FILE = 'checkpoint.pt'
 
+DEFAULT_NUM_DISTRIBUTIONS = 20
 DEFAULT_NUM_REPETITIONS = 50
 DEFAULT_LEARNING_RATE = 5e-3
 DEFAULT_TRAIN_BATCH_SIZE = 100
@@ -211,7 +222,8 @@ DEFAULT_DEPTH = 3
 
 # NUM_INPUT_DISTRIBUTIONS_LIST = [10, 20, 30, 40, 50]
 NUM_INPUT_DISTRIBUTIONS_LIST = [10]
-PERTURBATIONS = [0, 1, 3, 5]
+PERTURBATIONS = [0, 1]
+CONTINUOUS_PERTURBATIONS = [ 1./255, 3./255, 5./255, 8./255]
 DEFAULT_AVERAGE_REPEAT_SIZE = 100
 
 NEURAL_NETWORK_ATTACK_MODEL_SUB_DIRECTORY = "AMNN"
@@ -223,13 +235,14 @@ CLEAN_MODEL_SUB_DIRECTORY = "M"
 
 POON_DOMINGOS_GRID = [7]
 
-DEFAULT_NUM_SUMS = 10
-DEFAULT_NUM_INPUT_DISTRIBUTIONS = 10
+DEFAULT_NUM_MNIST_SUMS = 20
+DEFAULT_NUM_MNIST_INPUT_DISTRIBUTIONS = 20
+DEFAULT_NUM_MNIST_REPETITIONS = 10
 
 PGD = "pgd"
 FGSM = "fgsm"
 
-DGCSPN = "dgcspn"
+PERT = "pert"
 NET = "nn"
 CW = "cw"
 PGDL2 = "pgdl2"
@@ -238,3 +251,28 @@ DEEPFOOL = "deepfool"
 SPARSEFOOL = "sparsefool"
 FAB = "fab"
 ONE_PIXEL = "one_pixel"
+
+
+DEBD_display_name = {
+	'accidents': 'accidents',
+	'ad': 'ad',
+	'baudio': 'audio',
+	'bbc': 'bbc',
+	'bnetflix': 'netflix',
+	'book': 'book',
+	'c20ng': '20ng',
+	'cr52': 'reuters-52',
+	'cwebkb': 'web-kb',
+	'dna': 'dna',
+	'jester': 'jester',
+	'kdd': 'kdd-2k',
+	'kosarek': 'kosarek',
+	'moviereview': 'moviereview',
+	'msnbc': 'msnbc',
+	'msweb': 'msweb',
+	'nltcs': 'nltcs',
+	'plants': 'plants',
+	'pumsb_star': 'pumsb-star',
+	'tmovie': 'each-movie',
+	'tretail': 'retail',
+	'voting': 'voting'}

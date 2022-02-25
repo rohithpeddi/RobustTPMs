@@ -38,7 +38,7 @@ def generate_adversarial_sample_batched(einet, inputs, perturbations, k=10):
 		if num_dims > 500:
 			outputs = []
 			perturbed_dataset = TensorDataset(perturbed_set)
-			perturbed_dataloader = DataLoader(perturbed_dataset, shuffle=False, batch_size=500)
+			perturbed_dataloader = DataLoader(perturbed_dataset, shuffle=False, batch_size=100)
 			for perturbed_inputs in perturbed_dataloader:
 				outputs.append(einet(perturbed_inputs[0]))
 			outputs = (torch.cat(outputs)).clone().detach()
@@ -62,9 +62,9 @@ def generate_adv_dataset(einet, dataset_name, inputs, labels, perturbations, com
 
 	k = min(max(10, int(0.1 * num_dims)), 50)
 	if dataset_name in SMALL_VARIABLE_DATASETS:
-		batch_size = max(1, int(3000 / k)) if batched else 1
+		batch_size = max(1, int(1000 / k)) if batched else 1
 	else:
-		batch_size = max(1, int(800 / k)) if batched else 1
+		batch_size = max(1, int(200 / k)) if batched else 1
 
 	dataset = TensorDataset(adv_inputs)
 	data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)

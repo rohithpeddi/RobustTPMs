@@ -37,17 +37,18 @@ class PGD(Attack):
         self.random_start = random_start
         self._supported_mode = ['default', 'targeted']
 
-    def forward(self, images, labels):
+    def forward(self, images, labels=None):
         r"""
         Overridden.
         """
         images = images.clone().detach().to(self.device)
-        labels = labels.clone().detach().to(self.device)
+        if labels is not None:
+            labels = labels.clone().detach().to(self.device)
 
         if self._targeted:
             target_labels = self._get_target_label(images, labels)
 
-        loss = nn.CrossEntropyLoss()
+        # loss = nn.CrossEntropyLoss()
 
         adv_images = images.clone().detach()
 
@@ -60,13 +61,13 @@ class PGD(Attack):
             adv_images.requires_grad = True
             outputs = self.model(adv_images)
 
-            # Calculate loss
-            if self._targeted:
-                cost = -loss(outputs, target_labels)
-            else:
-                cost = loss(outputs, labels)
+            # # Calculate loss
+            # if self._targeted:
+            #     cost = -loss(outputs, target_labels)
+            # else:
+            #     cost = loss(outputs, labels)
 
-            # cost = self.model.loss(outputs, labels)
+            cost = self.model.loss(outputs)
 
             # Update adversarial images
             grad = torch.autograd.grad(cost, adv_images,
@@ -74,6 +75,6 @@ class PGD(Attack):
 
             adv_images = adv_images.detach() + self.alpha*grad.sign()
             delta = torch.clamp(adv_images - images, min=-self.eps, max=self.eps)
-            adv_images = torch.clamp(images + delta, min=0, max=1).detach()
+            adv_images = torch.clamp(images + delta,  min=-(0.1307/0.3081), max=((1-0.1307)/0.3081)).detach()
 
         return adv_images

@@ -54,8 +54,8 @@ def test_standard_spn_continuous():
 				print_message += (" " + "training einet")
 				evaluation_message(print_message)
 
-				trained_ratspn = SPN.train_spn(1, dataset_name, ratspn, train_x, train_labels, valid_x, valid_labels,
-											   test_x, test_labels, ratspn_args)
+				trained_ratspn = SPN.train_generative_spn(1, dataset_name, ratspn, train_x, train_labels, valid_x, valid_labels,
+														  test_x, test_labels, ratspn_args)
 
 				mean_ll, std_ll = SPN.test_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
 				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
@@ -65,7 +65,7 @@ def test_standard_spn_continuous():
 
 				SPN.generate_samples(trained_ratspn, dataset_name, ratspn_args)
 
-				SPN.generate_conditional_samples(trained_ratspn, dataset_name, ratspn_args, test_x)
+				SPN.generate_conditional_samples(132, trained_ratspn, dataset_name, ratspn_args, test_x)
 
 
 def test_standard_spn_adv_test_data():
@@ -97,7 +97,7 @@ def test_standard_spn_adv_test_data():
 				print_message += (" " + "loading pretrained ratspn")
 				evaluation_message(print_message)
 
-				trained_ratspn = SPN.load_pretrained_ratspn(1, dataset_name, ratspn_args)
+				trained_ratspn = SPN.load_pretrained_spn(1, dataset_name, ratspn_args,, perturbations
 
 				mean_ll, std_ll = SPN.test_spn(trained_ratspn, test_x, test_labels, batch_size=EVAL_BATCH_SIZE)
 				print("Mean LogLikelihood : {}, Standard deviation of log-likelihood : {}".format(mean_ll, std_ll))
@@ -137,7 +137,7 @@ def test_standard_spn_discrete(specific_datasets=None):
 
 			evaluation_message("Training ratspn")
 
-			trained_ratspn = SPN.train_spn(1, dataset_name, ratspn, train_x, valid_x, test_x, ratspn_args)
+			trained_ratspn = SPN.train_generative_spn(1, dataset_name, ratspn, train_x, valid_x, test_x, ratspn_args)
 
 			mean_ll, std_ll = SPN.test_spn(dataset_name, trained_ratspn, test_x, batch_size=EVAL_BATCH_SIZE)
 			evaluation_message("Clean Mean LL : {}, Std LL : {}".format(mean_ll, std_ll))
@@ -157,12 +157,12 @@ def test_standard_spn_discrete(specific_datasets=None):
 				SPN.generate_samples(trained_ratspn, dataset_name, ratspn_args)
 
 				evaluation_message("Generating conditional samples")
-				SPN.generate_conditional_samples(trained_ratspn, dataset_name, ratspn_args, test_x)
+				SPN.generate_conditional_samples(132, trained_ratspn, dataset_name, ratspn_args, test_x)
 
 			for evidence_percentage in EVIDENCE_PERCENTAGES:
 				dataset_distribution_evidence_results = dict()
-				mean_ll, std_ll = SPN.test_conditional_likelihood(trained_ratspn, dataset_name, evidence_percentage,
-																  ratspn_args, test_x)
+				mean_ll, std_ll = SPN.test_conditional_spn(trained_ratspn, dataset_name, evidence_percentage,
+														   ratspn_args, test_x)
 				evaluation_message(
 					"Clean Evidence percentage : {}, Mean LL : {}, Std LL  : {}".format(evidence_percentage, mean_ll,
 																						std_ll))
