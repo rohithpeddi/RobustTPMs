@@ -114,9 +114,9 @@ class Tably:
         if self.separate_outfiles is not None:
             outs = self.separate_outfiles
             if len(outs) == 0:
-                outs = [ os.path.splitext(file)[0]+'.tex' for file in self.files ]
+                outs = [ os.path.splitext(file)[0]+'.tex_bak' for file in self.files ]
             elif os.path.isdir(outs[0]):
-                outs = [ os.path.join(outs[0], os.path.splitext(os.path.basename(file))[0])+'.tex' for file in self.files ]
+                outs = [ os.path.join(outs[0], os.path.splitext(os.path.basename(file))[0])+'.tex_bak' for file in self.files ]
             elif len(outs) != len(self.files):
                 print('WARNING: Number of .csv files and number of output files do not match!')
             for file, out in zip(self.files, outs):
@@ -338,17 +338,17 @@ def arg_parser():
         metavar='PATH',
         nargs='*',
         help='When multiple .csv files need to be processed, '
-             'pass -oo to save each individual table in a separate .tex file. '
+             'pass -oo to save each individual table in a separate .tex_bak file. '
              'To specifiy each individual output file, '
              'pass a list of filenames after -oo. '
              'Alternatively, pass a directory that will store all the output files. '
              'If no filename/directory is passed after -oo, '
-             'filenames of .csv files will be used (with .tex extension).'
+             'filenames of .csv files will be used (with .tex_bak extension).'
     )
     parser.add_argument(
         '-p', '--preamble',
         action='store_true',
-        help='If selected, makes a whole .tex document (including the preamble) '
+        help='If selected, makes a whole .tex_bak document (including the preamble) '
              'ready to be built as .pdf. Useful when trying to make a quick report. '
              'Default: False'
     )

@@ -17,7 +17,7 @@ from constants import *
 from deeprob.torch.callbacks import EarlyStopping
 from train_neural_models import generate_debd_labels
 from utils import mkdir_p
-from utils import predict_labels_mnist
+from utils import predict_labels_mnist, save_image_stack
 
 ############################################################################
 
@@ -469,3 +469,61 @@ def test_conditional_einet(test_attack_type, perturbations, dataset_name, einet,
 																	batch_size=batch_size)
 	mean_ll, stddev_ll = get_stats(test_lls)
 	return mean_ll, stddev_ll
+
+
+def generate_conditional_samples(einet, structure, dataset_name, einet_args, test_x, attack_type):
+	einet.eval()
+	DATASET_CONDITIONAL_SAMPLES_DIR = os.path.join(CONDITIONAL_SAMPLES_DIRECTORY, dataset_name)
+	mkdir_p(DATASET_CONDITIONAL_SAMPLES_DIR)
+
+	if dataset_name == MNIST or dataset_name == BINARY_MNIST:
+
+		image_scope = np.array(range(MNIST_HEIGHT * MNIST_WIDTH)).reshape(MNIST_HEIGHT, MNIST_WIDTH)
+		marginalize_idx = list(image_scope[:, 0:round(MNIST_WIDTH / 2)].reshape(-1))
+		# marginalize_idx = list(image_scope[0:round(MNIST_HEIGHT / 2), :].reshape(-1))
+		keep_idx = [i for i in range(MNIST_WIDTH * MNIST_HEIGHT) if i not in marginalize_idx]
+		einet.set_marginalization_idx(marginalize_idx)
+
+
+		# ground truth
+		random.seed(356)
+		indices = [random.randrange(1, 10000, 1) for i in range(25)]
+		print(indices)
+
+		perturbed_test = test_x[indices, :].cpu().numpy()
+		random_perturbations = np.array([random.randrange(200, 750, 1) for i in range(125)])
+		random_perturbations = random_perturbations.reshape((25, 5))
+
+		for i in range(25):
+			perturbed_test[i][random_perturbations[i]] = 1 - perturbed_test[i][random_perturbations[i]]
+
+		ground_truth = np.copy(perturbed_test)
+		ground_truth = ground_truth.reshape((-1, 28, 28))
+		ground_truth_file = "{}_{}_{}_{}_{}_{}_ground_truth.png".format(attack_type, structure, dataset_name,
+																		einet_args[NUM_SUMS],
+																		einet_args[NUM_INPUT_DISTRIBUTIONS],
+																		einet_args[NUM_REPETITIONS])
+		save_image_stack(ground_truth, 1, 10, os.path.join(DATASET_CONDITIONAL_SAMPLES_DIR, ground_truth_file),
+						 margin_gray_val=0.)
+
+		covered_perturbed_test = np.copy(perturbed_test)
+		covered_perturbed_test[:, marginalize_idx] = 0
+		covered_perturbed_test = covered_perturbed_test.reshape((-1, 28, 28))
+		ground_truth_file = "{}_{}_{}_{}_{}_{}_covered_ground_truth.png".format(attack_type, structure, dataset_name,
+																		einet_args[NUM_SUMS],
+																		einet_args[NUM_INPUT_DISTRIBUTIONS],
+																		einet_args[NUM_REPETITIONS])
+		save_image_stack(covered_perturbed_test, 1, 10, os.path.join(DATASET_CONDITIONAL_SAMPLES_DIR, ground_truth_file),
+						 margin_gray_val=0.)
+
+
+		mpe_reconstruction = einet.mpe(x=torch.tensor(perturbed_test, device=torch.device(device))).cpu().numpy()
+		mpe_reconstruction = mpe_reconstruction.squeeze()
+		mpe_reconstruction = mpe_reconstruction.reshape((-1, 28, 28))
+		mpe_reconstruction_file = "{}_{}_{}_{}_{}_{}_mpe_reconstruction.png".format(attack_type, structure,
+																					dataset_name,
+																					einet_args[NUM_SUMS],
+																					einet_args[NUM_INPUT_DISTRIBUTIONS],
+																					einet_args[NUM_REPETITIONS])
+		save_image_stack(mpe_reconstruction, 1, 10,
+						 os.path.join(DATASET_CONDITIONAL_SAMPLES_DIR, mpe_reconstruction_file), margin_gray_val=0.)
